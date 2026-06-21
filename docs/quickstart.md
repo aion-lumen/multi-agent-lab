@@ -5,7 +5,7 @@ Run the heuristic pipeline offline with fixture mails (no Yahoo account, no LM S
 ## Prerequisites
 
 ```bash
-cd multi-agent
+cd multi-agent-lab
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 cp config/user_context.example.yaml config/user_context.yaml   # optional
@@ -46,7 +46,7 @@ Hauskauf kanban. No IMAP or LLM calls. Reproducible end-to-end.
 
 ```bash
 # Prerequisites: folio dev server must have been started once to init ~/.folio/folio.db.
-cd multi-agent
+cd multi-agent-lab
 make demo
 ```
 

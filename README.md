@@ -22,7 +22,7 @@ validator_batch.py  ──► folio.db (validator_opinions, worker_run_logs)
 |---|---|---|
 | `state/feedback.db` | multi-agent scripts | folio (read) |
 | `~/.folio/folio.db` | folio + cross-DB writers | multi-agent (logs, opinions) |
-| `~/.council/council.db` | council worker | folio (read) |
+| `~/.council/council.db` | council worker | folio (read) — optional companion, not required for the demo |
 
 See `docs/cross-db-write-ausnahmen.md` for allowed cross-DB writes.
 
@@ -39,17 +39,21 @@ See `docs/cross-db-write-ausnahmen.md` for allowed cross-DB writes.
 
 ## Quickstart
 
-Copy example configs, then run offline:
+Set up the Python environment, copy example configs, then run the heuristic worker offline against a fixture:
 
 ```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+
 cp config/user_context.example.yaml config/user_context.yaml
 cp config/immo_whitelist.example.yaml config/immo_whitelist.yaml
 cp config/regelwerk.example.yaml config/regelwerk.yaml
+
 python scripts/production_worker.py --dry-run --no-telegram \
   --imap-fixture tests/fixtures/imap/demo_quickstart.json --tranche-size 2
 ```
 
-Full guide: [docs/quickstart.md](docs/quickstart.md)
+Full guide (incl. `make demo` seed for the folio UI demo): [docs/quickstart.md](docs/quickstart.md)
 
 ## Screenshots (from folio UI)
 
@@ -72,12 +76,14 @@ The pipeline is orchestrated and observed via folio's UI. Captured against the b
 
 ## Environment
 
-| Variable | Default |
-|---|---|
-| `FEEDBACK_DB_PATH` | `<repo>/state/feedback.db` |
-| `FOLIO_DB_PATH` | `~/.folio/folio.db` |
-| `MULTI_AGENT_CONFIG_DIR` | `<repo>/config` |
-| `LIFE_MAIL_ACCOUNTS_TOML` | `~/Projects/life-mail/accounts.toml` |
+| Variable | Default | Required for |
+|---|---|---|
+| `FEEDBACK_DB_PATH` | `<repo>/state/feedback.db` | demo + prod |
+| `FOLIO_DB_PATH` | `~/.folio/folio.db` | demo + prod |
+| `COUNCIL_DB_PATH` | `~/.council/council.db` | demo + prod |
+| `MULTI_AGENT_CONFIG_DIR` | `<repo>/config` | demo + prod |
+| `AION_LUMEN_PATH` | `~/Projects/aion-lumen/multi-agent` | folio-side handoff (demo + prod) |
+| `LIFE_MAIL_ACCOUNTS_TOML` | `~/Projects/life-mail/accounts.toml` | prod only (live IMAP) |
 
 ## License
 

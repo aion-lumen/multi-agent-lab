@@ -7,7 +7,6 @@
 # folio dev server (via scripts/demo-server.sh) respect them.
 
 PYTHON ?= python3
-COUNCIL_SETUP := ../council/scripts/setup_council_db.py
 REAL_FOLIO_DB := $(HOME)/.folio/folio.db
 REAL_COUNCIL_DB := $(HOME)/.council/council.db
 REAL_FEEDBACK_DB := state/feedback.db
@@ -23,18 +22,22 @@ COUNCIL_DB := $(COUNCIL_DB_PATH)
 FOLIO_DB := $(FOLIO_DB_PATH)
 FEEDBACK_DB := $(FEEDBACK_DB_PATH)
 
-.PHONY: help demo demo-force demo-clean test init-demo-dbs inventory
+.PHONY: help demo demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas
 
 help:
 	@echo "Targets (all demo* operate on ISOLATED *-demo.db files, real DBs untouched):"
-	@echo "  make demo            Init isolated demo DBs (if needed) + seed Alex+Maya"
-	@echo "                       state across all three (council objects ranked, folio"
-	@echo "                       runs + hauskauf workflow, feedback rows). Idempotent."
-	@echo "  make demo-force      Re-seed even if demo rows exist (DELETEs first)."
-	@echo "  make demo-clean      Delete only the demo rows from the demo DBs."
-	@echo "  make init-demo-dbs   Clone schemas from real DBs into *-demo.db (idempotent)."
-	@echo "  make inventory       Print current demo-state inventory."
-	@echo "  make test            Run pytest suite."
+	@echo "  make demo                  Init isolated demo DBs (if needed) + seed Alex+Maya"
+	@echo "                             state across all three. Idempotent."
+	@echo "  make demo-force            Re-seed even if demo rows exist (DELETEs first)."
+	@echo "  make demo-clean            Delete only the demo rows from the demo DBs."
+	@echo "  make init-demo-dbs         Init isolated *-demo.db files (idempotent). Uses"
+	@echo "                             owner's real DB if present, else falls back to"
+	@echo "                             data/schemas/*.sql so a cold-start machine works."
+	@echo "  make refresh-demo-schemas  Owner pre-release task: regenerate the static SQL"
+	@echo "                             schema dumps in data/schemas/ from the real DBs."
+	@echo "                             Run before tagging a release if schemas changed."
+	@echo "  make inventory             Print current demo-state inventory."
+	@echo "  make test                  Run pytest suite."
 	@echo ""
 	@echo "Demo DBs (set via env, override-able):"
 	@echo "  FOLIO_DB_PATH    = $(FOLIO_DB_PATH)"
@@ -43,6 +46,39 @@ help:
 
 init-demo-dbs:
 	@bash scripts/init_demo_dbs.sh
+
+# Owner-only target: regenerate the static schema dumps in data/schemas/ from
+# the real DBs. Run after a schema migration on the owner's machine and
+# before tagging a release, so cold-start users get the current schema.
+refresh-demo-schemas:
+	@mkdir -p data/schemas
+	@echo "Dumping folio.db schema from $(REAL_FOLIO_DB)..."
+	@if [ ! -f "$(REAL_FOLIO_DB)" ]; then echo "  ERROR: $(REAL_FOLIO_DB) not found"; exit 1; fi
+	@( \
+	  sqlite3 "$(REAL_FOLIO_DB)" .schema \
+	    | grep -v "^CREATE TABLE sqlite_sequence" \
+	    | $(PYTHON) -c "import sys, re; sys.stdout.write(re.sub(r'CREATE TABLE[^(]*?__pre_[^(]*?\([^;]*?\);\s*\n?', '', sys.stdin.read(), flags=re.IGNORECASE|re.DOTALL))"; \
+	  echo ""; \
+	  echo "-- Default user (id=1) required for hauskauf_workflow.created_by_user_id FK."; \
+	  echo "-- Mirrors the hardcoded INSERT in scripts/init_demo_dbs.sh (folded into the schema)."; \
+	  echo "INSERT OR IGNORE INTO users (id, tailscale_login, display_name, role) VALUES (1, NULL, 'demo-user', 'owner');"; \
+	) > data/schemas/folio.schema.sql
+	@echo "  → data/schemas/folio.schema.sql ($$(wc -l < data/schemas/folio.schema.sql) lines)"
+	@echo "Dumping council.db schema from $(REAL_COUNCIL_DB)..."
+	@if [ ! -f "$(REAL_COUNCIL_DB)" ]; then echo "  ERROR: $(REAL_COUNCIL_DB) not found"; exit 1; fi
+	@sqlite3 "$(REAL_COUNCIL_DB)" .schema \
+	    | grep -v "^CREATE TABLE sqlite_sequence" \
+	    | $(PYTHON) -c "import sys, re; sys.stdout.write(re.sub(r'CREATE TABLE[^(]*?__pre_[^(]*?\([^;]*?\);\s*\n?', '', sys.stdin.read(), flags=re.IGNORECASE|re.DOTALL))" \
+	    > data/schemas/council.schema.sql
+	@echo "  → data/schemas/council.schema.sql ($$(wc -l < data/schemas/council.schema.sql) lines)"
+	@echo "Dumping feedback.db schema from $(REAL_FEEDBACK_DB)..."
+	@if [ ! -f "$(REAL_FEEDBACK_DB)" ]; then echo "  ERROR: $(REAL_FEEDBACK_DB) not found"; exit 1; fi
+	@sqlite3 "$(REAL_FEEDBACK_DB)" .schema \
+	    | grep -v "^CREATE TABLE sqlite_sequence" \
+	    > data/schemas/feedback.schema.sql
+	@echo "  → data/schemas/feedback.schema.sql ($$(wc -l < data/schemas/feedback.schema.sql) lines)"
+	@echo ""
+	@echo "Done. Commit data/schemas/*.sql if any changed."
 
 # Check all three demo DBs exist (init_demo_dbs.sh creates them if missing).
 check-demo-dbs:
