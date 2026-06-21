@@ -1,0 +1,70 @@
+# === Secrets — niemals committen ===
+.env
+.env.*
+*.env
+
+# === Python venv und Cache ===
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# === OS-Cruft ===
+.DS_Store
+Thumbs.db
+
+# === SQLite Sidecars (transient) ===
+*.db-shm
+*.db-wal
+*.db-journal
+
+# === State-DBs (locale Worker-Daten, nicht committen) ===
+# Bereits getrackte state/*.db-Dateien (Pre-/Post-Snapshots aus Migrations-
+# Historie) bleiben über git track gespeichert; dieses Pattern blockt nur
+# neue untracked .db-Files unter state/.
+state/*.db
+
+# === Lauf-Output, regenerierbar, im Pre-Git-Tarball gesichert ===
+*.log
+
+# === Hermes-Snapshot (42 MB, Audit erledigt, Re-Erzeugung jederzeit möglich) ===
+state/hermes-v013-snapshot-*/
+
+# === Pre-Snapshots (forensisch behalten via .db-Files; Verzeichnis-Form ignorieren) ===
+# Hinweis: phase-3_5c-pre-snapshot-* enthält Code-Kopien für Rollback — committen via
+# explizites `git add -f` bei Bedarf. Default: ignorieren, da Substanz aus Reports
+# nachvollziehbar.
+state/*-pre-snapshot-*/
+
+# === Editor-Cruft ===
+.vscode/
+.idea/
+*.swp
+*~
+
+# === macOS Spotlight ===
+.Spotlight-V100/
+.Trashes/
+
+# === Methodologie-Bau-Gerüst (CC-Prompts) liegt im _method/-Archiv außerhalb des Repos ===
+cc-prompt-*.md
+
+# === Personal config (tracked: *.example.yaml only) ===
+config/user_context.yaml
+config/immo_whitelist.yaml
+config/regelwerk.yaml
+
+# === Archives, handoffs, backups (local only) ===
+*.zip
+state/*.bak*
+folio-mail/
+
+# === Runtime state (created by worker / watchdog at runtime) ===
+# Nothing in state/ should ever be committed: DBs, logs, telemetry, snapshots.
+# Single tracked exception is state/.gitkeep so fresh clones get the dir.
+state/*
+!state/.gitkeep
+
+# Vitest local output
+test-results/

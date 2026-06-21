@@ -1,0 +1,101 @@
+[
+  {
+    "name": "stage1_ok",
+    "data": "o1:taskuuid-1:ok",
+    "expected_task_id": "taskuuid-1",
+    "expected_action": "ok",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_override_werbung",
+    "data": "o1:taskuuid-2:werbung",
+    "expected_task_id": "taskuuid-2",
+    "expected_action": "werbung",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_override_geschaeftspost",
+    "data": "o1:taskuuid-3:geschaeftspost",
+    "expected_task_id": "taskuuid-3",
+    "expected_action": "geschaeftspost",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_privat",
+    "data": "o1:taskuuid-4:privat",
+    "expected_task_id": "taskuuid-4",
+    "expected_action": "privat",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_spam",
+    "data": "o1:taskuuid-5:spam",
+    "expected_task_id": "taskuuid-5",
+    "expected_action": "spam",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_unklar",
+    "data": "o1:taskuuid-6:unklar",
+    "expected_task_id": "taskuuid-6",
+    "expected_action": "unklar",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage1_skip",
+    "data": "o1:taskuuid-7:skip",
+    "expected_task_id": "taskuuid-7",
+    "expected_action": "skip",
+    "expected_stage": 1
+  },
+  {
+    "name": "stage2_ok",
+    "data": "o1:taskuuid-8:stage2_ok",
+    "expected_task_id": "taskuuid-8",
+    "expected_action": "stage2_ok",
+    "expected_stage": 2
+  },
+  {
+    "name": "stage2_portal",
+    "data": "o1:taskuuid-9:portal",
+    "expected_task_id": "taskuuid-9",
+    "expected_action": "portal",
+    "expected_stage": 2
+  },
+  {
+    "name": "stage2_privat_immo",
+    "data": "o1:taskuuid-10:privat_immo",
+    "expected_task_id": "taskuuid-10",
+    "expected_action": "privat_immo",
+    "expected_stage": 2
+  },
+  {
+    "name": "stage2_zupruefen",
+    "data": "o1:taskuuid-11:zupruefen",
+    "expected_task_id": "taskuuid-11",
+    "expected_action": "zupruefen",
+    "expected_stage": 2
+  },
+  {
+    "name": "stage2_back_paketzustellung",
+    "data": "o1:taskuuid-12:stage2_back",
+    "expected_task_id": "taskuuid-12",
+    "expected_action": "stage2_back",
+    "expected_stage": 2
+  },
+  {
+    "name": "foreign_prefix",
+    "data": "other:taskuuid:ok",
+    "expected_task_id": null
+  },
+  {
+    "name": "malformed_no_colon",
+    "data": "o1ok",
+    "expected_task_id": null
+  },
+  {
+    "name": "unknown_action",
+    "data": "o1:taskuuid:bogus_action",
+    "expected_task_id": null
+  }
+]

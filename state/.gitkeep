@@ -1,0 +1,3 @@
+# Runtime state directory.
+# Worker, validator, and watchdog write DBs / logs / telemetry here at runtime.
+# Everything except this file is gitignored.

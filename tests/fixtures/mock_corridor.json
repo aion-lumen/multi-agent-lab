@@ -1,0 +1,39 @@
+{
+  "_doc": "Canonical mock corridor for tests + fixture-generation. Algarve coast (Portugal). Used everywhere a plausible-but-fictional location set is needed in code/tests. Real production corridor lives in config/regelwerk.yaml (untracked, gitignored) — see config/regelwerk.example.yaml for the schema.",
+  "plz": [
+    "8000",
+    "8100",
+    "8125",
+    "8135",
+    "8600",
+    "8700",
+    "8800"
+  ],
+  "cities": [
+    "Faro",
+    "Loulé",
+    "Vilamoura",
+    "Almancil",
+    "Lagos",
+    "Olhão",
+    "Tavira"
+  ],
+  "plz_to_city": {
+    "8000": "Faro",
+    "8100": "Loulé",
+    "8125": "Vilamoura",
+    "8135": "Almancil",
+    "8600": "Lagos",
+    "8700": "Olhão",
+    "8800": "Tavira"
+  },
+  "coords_home": {
+    "plz": "8000",
+    "city": "Faro",
+    "lat": 37.0194,
+    "lng": -7.9322
+  },
+  "country": "PT",
+  "country_name": "Portugal",
+  "example_address": "Rua de Santo António, 8000-302 Faro"
+}

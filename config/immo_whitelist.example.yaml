@@ -1,0 +1,55 @@
+# Immo-Heuristik Location Whitelist — example template.
+# Copy to immo_whitelist.yaml and edit for your search corridor.
+#
+# Structure: ch_side + de_side are flat lists of city names (case-insensitive
+# match). Legacy key names from a Swiss/German use case — here re-used for an
+# Algarve coast (ch_side) + inland (de_side) demo corridor. Code unions both:
+# load_whitelist() in scripts/immo_heuristic.py.
+#
+# Disambiguators are regex strings, searched in a ±60-char window around each
+# matched city name. Without a disambiguator a hit counts as whitelist_match;
+# with one, the regex must also match or the hit downgrades to ambiguous.
+
+ch_side:
+  # Algarve coastal
+  - Faro
+  - Olhão
+  - Tavira
+  - Albufeira
+  - Lagos
+  - Quarteira
+  - Vilamoura
+  - Sagres
+
+de_side:
+  # Algarve inland (within ~30 km of Faro/Loulé corridor)
+  - Loulé
+  - "São Brás de Alportel"
+  - Estoi
+  - Almancil
+  - Boliqueime
+  - Querença
+
+disambiguators:
+  Faro: 'algarve|portugal|800[0-9]'
+  Lagos: 'algarve|portugal|860[0-9]'
+
+paketzustellung:
+  logistiker_domains:
+    - ctt.example
+    - dhl.example
+    - dpd.example
+  shopping_domains:
+    - amazon.example
+    - worten.example
+    - example-shop.com
+  shopping_keywords:
+    de:
+      - versendet
+      - Lieferung
+      - Paket
+      - Auftragsbestätigung
+    en:
+      - shipped
+      - delivery
+      - package

@@ -1,0 +1,37 @@
+Alles erledigt. Final-Confirmation:
+
+  1. Memory-Save: 5 neue Entries unter ~/.claude/projects/.../memory/ + MEMORY.md aktualisiert
+  - user_architekt_profile.md (user-type)
+  - feedback_language_split.md
+  - feedback_three_attempts_rule.md
+  - feedback_plan_mode_browser_trace.md
+  - feedback_long_analysis_in_files.md
+  - feedback_architekt_time_estimates.md
+
+  2. Handoff-Verifikation: Doc vollständig:
+  - ✓ §10.3 Issue 1 (Chat-fetch) mit 3 Hypothesen + Verifikations-Schritten
+  - ✓ Issue 2 (RecentRuns Live-Progress) + Issue 3 (/settings 404)
+  - ✓ §10.2 Pending B5-B9 tabellarisch mit Files
+  - ✓ §13 enthält pkill -f "vite dev" && cd ~/Projects/folio && npm run dev
+
+  3. State-Snapshot: als neues §0 oben im Handoff eingefügt (Engineer-2 liest als allererstes):
+  - Drei-Zeilen-Status: Wo wir sind / Was kaputt / Nächster konkreter Schritt
+  - Plus Git-Status-Warnung (siehe Punkt 4)
+
+  4. Git-Status — wichtiger Fund: Folio IST git-repo (frühe Environment-Info war falsch). Beide Repos dirty:
+  - ~/Projects/folio: 13 Modified, ~13 Untracked (alle F.9-Files — ActivityBar, heute/, pipeline/, server-Module, etc.)
+  - ~/Projects/aion-lumen/multi-agent: 8 Modified, ~20 Untracked (alle Worker-Scripts, Migrations, Configs)
+
+  In §0 dokumentiert. Reboot ist filesystem-safe — keine Sorge bei normalem macOS-Update-Reboot. Architekt-Constraint "Keine git commits" gilt weiter.
+
+  ---
+  Sauberer Übergabe-Stand. Folio lebt, BUG-J strukturell weg, Bootstrap-Workflow funktional, Architektur-Vision für Sec-Härtung dokumentiert (§7).
+
+  Engineer-2 startet mit:
+  cat ~/Projects/aion-lumen/multi-agent/state/folio-handoff-2026-05-21.md | head -60
+  pkill -f "vite dev" && cd ~/Projects/folio && npm run dev
+  # Chat-Smoke. Falls PASS → Block 5. Falls FAIL → §10.3 Issue 1.
+
+  Danke für die zwei Tage. Saubere Iteration, ehrliche Eskalation bei BUG-J, F.9 strukturell richtig gemacht. Viel Erfolg nach Reboot.
+
+  — Engineer entlassen.

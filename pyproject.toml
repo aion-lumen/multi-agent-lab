@@ -1,0 +1,15 @@
+[project]
+name = "multi-agent"
+version = "0.1.0"
+description = "Persistent Kanban Worker + Yahoo IMAP + Immo-Heuristik + Telegram-Feedback for life-mail Phase 4 / Prompt O.1"
+requires-python = ">=3.11"
+dependencies = [
+    "requests>=2.31",
+    "pyyaml>=6.0",
+    "python-telegram-bot==22.7",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+]

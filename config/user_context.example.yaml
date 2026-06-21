@@ -1,0 +1,63 @@
+# F.8 User-Context-Configuration für Worker + Validator.
+# Copy to user_context.yaml and edit for your situation.
+#
+# Fallback wenn user_context.yaml fehlt: domain_actionability.py:DEFAULT_CONTEXT
+
+version: 1
+last_updated: 2026-06-11
+
+# Wohnort-PLZ für Distance-Anzeige im DetailPanel.
+home_plz: "00000"  # your postal code
+
+active_priorities:
+  - hauskauf
+  - jobsuche
+
+life_status:
+  region: "Your region + radius"
+  search_terms_immo:
+    - "haus kaufen"
+    - "wohnung mieten"
+  search_terms_job:
+    - "your job keywords"
+
+# First-names by which a personal sender might address you in a mail body
+# ("Hallo <name>", "Lieber <name>"). Adds a +1 privat-marker in
+# immo_heuristic when matched — helps separate addressed-by-name mails from
+# automailers. Leave empty to use only generic salutation patterns.
+personal_addressing_names:
+  - "FirstName"
+
+time_decay:
+  immo:
+    actionable_within_days: 90
+    archive_within_days: 180
+  job:
+    actionable_within_days: 90
+    archive_within_days: 180
+  kontakt:
+    actionable_within_days: 30
+    archive_within_days: 365
+  shopping:
+    actionable_within_days: 14
+    archive_within_days: 60
+  finance:
+    actionable_within_days: 60
+    archive_within_days: 2555
+  werbung:
+    actionable_within_days: 3
+    archive_within_days: 7
+  system:
+    actionable_within_days: 7
+    archive_within_days: 30
+  unsorted:
+    actionable_within_days: 30
+    archive_within_days: 180
+
+sender_priorities:
+  always_actionable: []
+  always_archive_silent:
+    - { sender: "*@notifications.example-portal.com", domain: immo }
+    - { sender: "jobalerts-noreply@linkedin.com", domain: job }
+    - { sender: "deals@*", domain: werbung }
+    - { sender: "marketing@*", domain: werbung }

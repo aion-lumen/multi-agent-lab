@@ -1,0 +1,369 @@
+# regelwerk.yaml — Zentrales Klassifikations-Regelwerk
+#
+# Quelle der Wahrheit für die F.8-Achse (domain × actionability). Wird von
+# Heuristik (Python, scripts/domain_actionability.py), Validator (Python,
+# scripts/validator_batch.py) und UI (TypeScript, folio/src/lib/server/
+# regelwerk/loader.ts) gelesen. Eine Regel-Änderung = ein Edit hier.
+#
+# Trennung zu user_context.yaml:
+#   - regelwerk.yaml = System (ändert selten): Action-Definitionen, Schwellen,
+#     Modus, Stimmen-Policy
+#   - user_context.yaml = Person (ändert öfter): active_priorities, home_plz,
+#     life_status, sender_priorities, time_decay
+#
+# Cross-Reference-Pflicht: jeder Key in user_context.active_priorities MUSS
+# als Key in regelwerk.priority_relevance existieren — sonst Lade-Fehler.
+#
+# Direktive: ~/Projects/direktive-regelwerk-zentralisierung.md (Freigabe 2026-05-26)
+
+schema_version: "v1"
+last_updated: 2026-05-26
+
+
+# ---------------------------------------------------------------------------
+# E3 — Auto/Manuell-Schalter
+# ---------------------------------------------------------------------------
+# Routing-Modus für relevant-befundene Mails.
+#   manual: relevante Suchabos kommen zuerst als actionable zum Owner. Nach
+#           dessen Freigabe → Übergabe an Council → Folio-Postfach archiviert.
+#   auto:   bei 4-Stimmen-Vollkonsens (auto_uebernahme.py) direkt an Council/
+#           Archive; eindeutig nicht-relevante direkt archive-silent.
+# Die Routing-Logik selbst kann Stub bleiben (Drei-Stimmen-Build + Council-
+# Übergabe sind separate Iterationen); der Schalter MUSS aber existieren.
+mode: manual                          # "manual" | "auto"
+
+
+# ---------------------------------------------------------------------------
+# E1 — Action-Definitionen (F.8-Achse)
+# ---------------------------------------------------------------------------
+# System-Vokabular für die zweite Klassifikations-Achse. Identisch genutzt von
+# Heuristik, Validator und UI. Bei Bedeutungsänderung: nur hier editieren.
+# Code-Vokabular (die Keys) bleibt englisch; Labels (UI-Anzeige) sind deutsch.
+action_definitions:
+  actionable:
+    label: "Aktionable"
+    description: "Erfordert Handlung/Entscheidung des Owners (Prüfen zählt)."
+    requires_decision: true
+  archive:
+    label: "Archiv"
+    description: "Zur Kenntnis/Referenz, kein Handlungsbedarf, sichtbar bei Suche."
+    requires_decision: false
+  archive-silent:
+    label: "Archiv (stumm)"
+    description: "Nie wieder anschauen (Werbung/Newsletter)."
+    requires_decision: false
+  # 2026-06-06 Bauteil 2 (Mail-zu-Council-Uebergang):
+  # Auto-Uebernahme nach Vier-Stimmen-Vollkonsens (Heuristik + 3 Validatoren
+  # alle einig auf immo+actionable, kein Block-Marker) ODER manueller Klick
+  # in Folio Mail-Detail. Council-mail-ingest-Worker holt Mails mit diesem
+  # Status statt archive-silent.
+  uebernommen:
+    label: "Uebernommen"
+    description: "In Council-Pipeline uebernommen — Worker ingested Inserate."
+    requires_decision: false
+
+
+# ---------------------------------------------------------------------------
+# E2 — Suchabo-Relevanz pro aktiver Priorität
+# ---------------------------------------------------------------------------
+# Eine Suchabo-Mail (Portal-Sender) ist actionable nur wenn:
+#   (a) eine aktive Priorität auf die Domain passt UND
+#   (b) Distanz ≤ max_distance_km (Schwelle pro Priorität eigen, konfigurierbar).
+# Sonderfälle:
+#   - Keine aktive Priorität für die Domain → ganze Domain wird stummgeschaltet
+#     (archive-silent), unabhängig von Distanz.
+#   - PLZ unbekannt/nicht extrahierbar UND aktive Priorität → fallback_unknown_plz
+#     (per Priorität konfigurierbar; Default actionable = im Zweifel zeigen).
+#
+# Lookup-Keys (hauskauf, jobsuche, ...) MÜSSEN mit user_context.active_priorities
+# konsistent sein. Loader validiert das beim Start.
+priority_relevance:
+  hauskauf:
+    domain: immo
+    # Filter-Spezifika (PLZ-Whitelist, Schwellen, Block-Patterns) leben
+    # zentralisiert in filters.hauskauf (siehe unten, Zentralisierungs-
+    # Iteration 2026-06-05). priority_relevance.hauskauf behaelt nur
+    # domain-Zuordnung + zeitfenster + fallback.
+    zeitfenster:
+      actionable_max_tage: 90
+      archive_max_tage: 180
+    fallback_unknown_plz: actionable
+  jobsuche:
+    domain: job
+    max_distance_km: 100             # Pendel-Reichweite
+    fallback_unknown_plz: actionable
+
+
+# ---------------------------------------------------------------------------
+# Filter-Definitionen (single source of truth, 2026-06-05)
+# ---------------------------------------------------------------------------
+# Konsumenten:
+#   - multi-agent: immo_heuristic.classify_immo + domain_actionability
+#     (Step 9 Korridor-Filter, Step 8 tier1-Blocker, Preis-Schwelle).
+#   - council: scripts/ingest_from_mail._should_filter (Sicherheitsnetz),
+#     scripts/council_lens_run (Personas bekommen Block-Patterns als
+#     Red-Flag-Kontext im Prompt).
+#
+# Pflegeort: NUR diese Section. Code-Konsumenten lesen via
+# get_filter_config(domain). Bei Erweiterung neuer Filter:
+#   1. Block-Pattern hier hinzufuegen.
+#   2. Konsumenten (oder Helper) so geschrieben, dass neue Keys
+#      automatisch geladen werden.
+filters:
+  hauskauf:
+    # PLZ-Whitelist for the search corridor.
+    # primary_side: flat PLZ list. secondary_side: ranges + extras
+    # (useful when one side is a metro area covered by a contiguous range).
+    korridor_whitelist:
+      # NOTE: Example values — Algarve coast (Portugal) corridor.
+      # Replace with your own corridor before running. The schema mirrors a
+      # bi-national setup (primary_side: flat PLZ list, secondary_side:
+      # ranges + extras). For a single-country setup, drop secondary_side or
+      # leave it empty.
+      primary_side:
+        # Central Algarve
+        - 8000  # Faro
+        - 8100  # Loulé
+        - 8125  # Vilamoura
+        - 8135  # Almancil
+        # Eastern Algarve
+        - 8700  # Olhão
+        - 8800  # Tavira
+        # Western Algarve
+        - 8600  # Lagos
+      secondary_side:
+        ranges:
+          - [9000, 9099]  # example range — replace per your geography
+        extras: []
+    # Explicit excludes — used when a PLZ falls inside primary_side or
+    # secondary_side via a range/list match, but you want to deny that
+    # specific PLZ for a use-case-specific reason (terrain, commute,
+    # local knowledge that the bounding box can't express).
+    korridor_excludes:
+      - 9020  # example exclude — within secondary_side range, denied per use-case
+    # Stadt → PLZ Mapping fuer Body-Parser-Pfad (Portal-Mails liefern oft
+    # nur Stadt+Landkreis ohne PLZ). Eine stellvertretende in-corridor-PLZ
+    # pro Stadt reicht — der eigentliche Korridor-Check macht
+    # is_plz_in_corridor (PLZ-Range).
+    # Disambiguierung: Stadt-Namen mit Suffix wo nicht eindeutig
+    # (z. B. "<City> Nord" vs "<City> Süd").
+    # Umlaute/Diakritika bewusst behalten (Lookup-Input ist normalisierter
+    # Portal-Adress-Text mit Diakritika).
+    korridor_staedte:
+      # Example values — Algarve corridor (see korridor_whitelist above).
+      # One representative PLZ per city — actual range check is done by
+      # is_plz_in_corridor against korridor_whitelist.
+      "Faro": 8000
+      "Loulé": 8100
+      "Vilamoura": 8125
+      "Almancil": 8135
+      "Lagos": 8600
+      "Olhão": 8700
+      "Tavira": 8800
+    # Numerische Schwellen.
+    thresholds:
+      price_max: 500000           # Preis ueber dieser Schwelle → archive-silent
+      qm_min: 100                 # Mindest-Wohnflaeche m²
+      qm_max: null                # bewusst offen, "zu gross" gibts nicht
+      distance_fallback_km: 40    # fallback bei unbekannter PLZ
+    # Bauteil-7 G4 (2026-06-09) Freshness-Filter: Mails aelter als X
+    # Tage → direkt archive-silent + marker expired:freshness:<days>.
+    # Greift im Mail-Klassifikator (domain_actionability._apply_time_decay)
+    # VOR der existing decay-Logik. Pragmatischer Default 45d uniform fuer
+    # alle Domains (Hauskauf-Zyklus). V2: pro Domain konfigurierbar via
+    # filters.<domain>.freshness_max_days.
+    freshness_max_days: 45
+    # Bauteil-8 A2/A3 (2026-06-09) Inserat-URL-Pattern pro Portal.
+    # Heuristik (immo_heuristic) markiert Portal-Sender-Mails ohne
+    # Inserat-URL mit 'no_inserat_url' und triggert Domain-Drift zu
+    # 'werbung'. Council-Ingest validiert pre-upsert auf gleiche
+    # Pattern-Liste plus 2-von-3-Stammdaten-Check.
+    # Pattern werden case-insensitive via re.search auf body geprueft.
+    # Sender-Domain matched lowercase, Sub-Domain-Matches via endswith
+    # (z.B. 'mail.notification.homegate.ch' matched 'homegate.ch').
+    inserat_url_patterns:
+      immobilienscout24.de:
+        - "/Expose/\\d+"
+        - "expose-\\d+"
+      immoscout24.ch:
+        - "/Expose/\\d+"
+        - "expose-\\d+"
+      immowelt.de:
+        - "/expose/[a-f0-9-]{8,}"
+      homegate.ch:
+        - "/kaufen/\\d+"
+        - "/mieten/\\d+"
+        - "/rent/\\d+"
+        - "/buy/\\d+"
+      comparis.ch:
+        - "/immobilien/[^\\s]+/[A-Z0-9]+"
+        # Bauteil-10 C5 (2026-06-10): Comparis Click-URL aus
+        # Suchabo-Mails (statt direkter Inserat-URL).
+        - "/comparis/dispatcher/go\\?cgid="
+      newhome.ch:
+        - "/de/kaufen/[\\w-]+/\\d+"
+        - "/objektdetail/\\d+"
+    # Block-Patterns: dict, key = Marker-Name (landet als
+    # `tier1:<key>:true` im heuristic_markers), value = Liste von
+    # Substrings/Tokens. Konsumenten compilen \\b(t1|t2|...)\\b
+    # case-insensitive regex zur Lauf-Zeit.
+    block_patterns:
+      projektiert:
+        - "neubau-projekt"
+        - "neubau projekt"
+        - "projektiert"
+        - "bau mit haus"
+        - "ausbaustufe"
+        - "town & country"
+        - "massa-haus"
+        - "massa haus"
+        - "wird errichtet"
+        - "in planung"
+      zwangsversteigerung:
+        - "zwangsversteigerungstermin"
+        - "zwangsversteigerungen"
+        - "zwangsversteigerung"
+        - "versteigerungstermin"
+        - "versteigerung"
+        - "amtsgericht"
+        - "gerichtsvollzieher"
+        - "notverkauf"
+        # Bauteil-7 G2 (2026-06-09) Werbe-Boilerplate-Phrasen.
+        # Variante 1: tier1-Token-Erweiterung (statt eigener werbung:*-
+        # Marker-Klasse). Wirkt ueber G1-Validation (Footer-/Subject-
+        # Disqualifikation schuetzt legitime Auto-Reply-Bestaetigungen)
+        # plus domain-agnostic-Filter (archive-silent unabhaengig von
+        # Domain).
+        - "führende herausgeber"
+        - "kostenlose bewertung"
+        - "verkaufs-service"
+        - "verkaufen sie zum besten preis"
+        - "wir bewerten ihre immobilie"
+        - "ihr verkaufsprofi"
+      preis_auf_anfrage:
+        - "preis auf anfrage"
+        - "preis auf nachfrage"
+        - "auf anfrage"
+        - "nach vereinbarung"
+        - "preis nach absprache"
+
+    # Bauteil-7 G1 (2026-06-09) Marker-Validation: Disqualifikations-
+    # Regeln pro block_pattern. Wenn Match in disqualifying Kontext
+    # (Footer-Boilerplate, Auto-Reply-Subject, Newsletter-Sender),
+    # wird der tier1:*-Marker NICHT gesetzt — Mail bleibt sichtbar.
+    # Schema rückwärts-kompatibel: Pattern ohne Eintrag wirkt wie
+    # bisher. Konsument: multi-agent/scripts/immo_heuristic.py.
+    block_patterns_validation:
+      projektiert:
+        disqualify_if:
+          - in_footer: true
+          - in_subject_prefix: ["AW:", "Re:", "Bestätigung", "Fwd:"]
+      zwangsversteigerung:
+        disqualify_if:
+          - in_footer: true
+          - in_subject_prefix: ["AW:", "Re:", "Bestätigung", "Fwd:"]
+          # Newsletter-Subdomains. Eigentliche Zwangsversteigerungs-
+          # Newsletter (z.B. argetra-news, foreclosure-marketing) sind
+          # selten substanziell relevant. Direkte noreply@-Sender ohne
+          # Newsletter-Subdomain (z.B. amtsgerichts-mailer) bleiben
+          # unverdaechtig.
+          - sender_pattern: "^(?:noreply|no-reply|donotreply)@(?:news|newsletter|marketing|info)\\."
+      preis_auf_anfrage:
+        disqualify_if:
+          - in_footer: true
+
+
+# ---------------------------------------------------------------------------
+# Council — Konsens-Schwellen (2026-06-05)
+# ---------------------------------------------------------------------------
+# Council-spezifische Konfig. Heute Konsumenten in Folio (cross-Repo):
+#   - src/lib/server/council-db/reader.ts:getConsensusReadyObjectIds
+#     (SQL ueber user_rankings.rank BETWEEN 1 AND consensus_top_n)
+#   - src/routes/(council)/council/mobile/[id]/+page.svelte
+#     (consensusReady-Derived: both ranks <= consensus_top_n)
+#   - src/lib/council/mobile/ConsensusTriggerCard.svelte (UI-Label)
+#
+# Vorher: alle drei Stellen hardcoded auf 3. Iteration 2026-06-05 auf
+# Top-5 (User-Spec Hauskauf-Kampagne).
+council:
+  consensus_top_n: 5      # vorher hardcoded 3 → Top-5 fuer Kampagne-Trigger
+
+
+# ---------------------------------------------------------------------------
+# E4 — Stimmen-Konfiguration (Validator-Lenses)
+# ---------------------------------------------------------------------------
+# Drei LLM-Lenses + Heuristik klassifizieren Mails auf domain × action.
+# Faktischer Schutz vor Auto-Archivierung uneiniger Mails:
+#   mode: manual (oben) — relevante Suchabos landen als actionable beim User.
+# Vollkonsens-Auto-Übernahme (wenn mode=auto): scripts/auto_uebernahme.py
+# verlangt 4-Stimmen-Einigkeit (Heuristik + 3 Lenses). Kein separater
+# protection_clause-Enforcer im Code — diese YAML-Sektion listet nur die
+# Lens-Konfiguration für validator_batch.py.
+voice_consensus:
+  # Voices in der Reihenfolge der Run-Ausführung: heuristic (deterministisch,
+  # läuft im Worker), dann primary_llm, dann control_llm (LM-Studio-Swap
+  # zwischen den beiden — RAM reicht nicht für gleichzeitiges Laden).
+  # `lm_studio_model` = Modell-ID wie in LM-Studio registriert (/v1/models).
+  # `response_strip` = welcher Pre-json-Strip in validator_batch nötig ist:
+  #   - "code_fence" (default): ```...``` und ```json-Fences entfernen
+  #   - "think": zusätzlich <think>...</think>-Block stripppen (qwen3-thinking)
+  #   - "none": Roh-Text direkt parsen
+  # `enabled: true|false` (Direktive 2026-05-26 Lens-Fix, F4-Sofort-Sicherung):
+  # disabled voices werden vom Validator-Loop übersprungen. Genutzt um qwen-
+  # Lenses während Hermes-Bypass-Build zu pausieren, ohne Modul-Struktur zu
+  # ändern. Default bei fehlendem Feld = true (backward-compat).
+  #
+  # Reihenfolge per Direktive §2.3: Lens 1=gemma, Lens 2=qwen3.6, Lens 3=qwen-thinking.
+  # Heuristik läuft im Worker (kein Iterations-Eintrag hier nötig, aber für die
+  # Konsens-Berechnung als Stimme gezählt).
+  voices:
+    - id: heuristic
+      role: deterministic
+      lm_studio_model: null              # Heuristik nutzt kein LLM
+      response_strip: none
+      enabled: true
+    - id: gemma-control                  # Lens 1
+      role: control_llm
+      lm_studio_model: gemma-4-26b-a4b-it-mlx
+      response_strip: code_fence
+      enabled: true
+    - id: qwen35b-lens                   # Lens 2 (= Plugin-Default-Modell, hier als blinde Lens)
+      role: control_llm
+      lm_studio_model: qwen3.6-35b-a3b-ud-mlx
+      response_strip: code_fence
+      enabled: true                      # Schritt 2C: Hermes-Bypass steht
+    - id: qwen-validator                 # Lens 3 (thinking)
+      role: primary_llm
+      lm_studio_model: qwen3-30b-a3b-thinking-2507
+      response_strip: think              # qwen3-thinking gibt <think>...</think> davor aus
+      enabled: true                      # Schritt 2C: Hermes-Bypass steht
+  strictness: strict                 # Dokumentations-Default; Auto-Pfad nutzt
+                                    # auto_uebernahme 4-voice full consensus.
+
+# Bauteil 6 (2026-06-09): IMAP-Aufräum-Aktion.
+# imap_cleanup.py wertet feedback.db + folio.db aus und führt nach
+# Konsens-Klassifikation Yahoo-IMAP-Aktionen aus:
+#   - Konsens-immo  → verschieben in target_folders.immo, mark-read
+#   - Konsens-job   → verschieben in target_folders.job, mark-read
+#   - User-verworfen/stumm → verschieben in Yahoo-Papierkorb (vorher
+#     corrections-Snapshot mit heuristic_markers_snapshot)
+#   - actionable / disagreement → keine IMAP-Aktion
+# Sanity-Check: max_per_run begrenzt einen Run. Bei Überschreitung:
+# abort + warn-log in folio.worker_run_logs.
+imap_cleanup:
+  enabled: true                 # nach live-verifikation 2026-06-09 (bauteil 6) enabled
+  max_per_run: 50
+  target_folders:
+    immo: "_AionLumen/Immo"
+    job: "_AionLumen/Job"
+    # Bauteil-7 G5-Schärfung (2026-06-09): Korrespondenz-Ordner fuer
+    # Makler-Auto-Replies (actionability='auto_reply'). Bewusst eigener
+    # Ordner — Mails bleiben verfuegbar fuer Bauteil 8 Mail-Council-
+    # Verlinkung (NICHT Trash).
+    auto_reply: "_AionLumen/Korrespondenz"
+    # Bauteil-12 (2026-06-10): Shopping-Ordner fuer Zahlungsbestätigungen
+    # (Buchhaltung). Migration Packetzustellung → _AionLumen/Shopping
+    # läuft beim ersten Run einmalig (siehe _handle_paketzustellung_
+    # migration in imap_cleanup.py). Werbung-Pfad hat KEINEN eigenen
+    # Ordner — geht in Papierkorb.
+    shopping: "_AionLumen/Shopping"

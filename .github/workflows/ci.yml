@@ -1,0 +1,23 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: pip install -r requirements.txt pytest pyyaml
+      - run: |
+          cp config/user_context.example.yaml config/user_context.yaml
+          cp config/immo_whitelist.example.yaml config/immo_whitelist.yaml
+          cp config/regelwerk.example.yaml config/regelwerk.yaml
+      - run: pytest tests/ -q --ignore=tests/test_production_worker_smoke.py
+      - run: pip install ruff && ruff check scripts/paths.py scripts/domain_actionability.py scripts/auto_uebernahme.py

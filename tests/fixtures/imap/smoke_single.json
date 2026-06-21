@@ -1,0 +1,32 @@
+[
+  {
+    "uid": 99999,
+    "flags": [],
+    "message_id": "<smoke@test.local>",
+    "date": "Fri, 16 May 2026 02:00:00 +0200",
+    "from_name": "Homegate AG",
+    "from_addr": "noreply@homegate.ch",
+    "to_addr": "owner@example.com",
+    "subject": "[SMOKE] T3 Apartamento Faro",
+    "body_text": "Olá,\n\nNovo anúncio em Faro.\nPreço 750.000 EUR\n3.5 quartos, 122 m²\nAnúncio-Nr 88888\n\nCumprimentos, Portal Demo",
+    "body_truncated": false,
+    "has_attachment": false,
+    "list_id": "",
+    "raw_size": 412
+  },
+  {
+    "uid": 99998,
+    "flags": [],
+    "message_id": "<smoke-pz@test.local>",
+    "date": "Fri, 16 May 2026 02:30:00 +0200",
+    "from_name": "DHL Sendungsverfolgung",
+    "from_addr": "noreply@dhl.de",
+    "to_addr": "owner@example.com",
+    "subject": "[SMOKE] Ihre Sendung 00340434292123456789 ist unterwegs",
+    "body_text": "Hallo,\n\nIhre Sendung ist unterwegs und wird voraussichtlich am 17.05.2026 zugestellt.\nTracking-Link: https://nolp.dhl.de/nextt-online-public/track.do\n\nMit freundlichen Grüßen\nIhr DHL-Team",
+    "body_truncated": false,
+    "has_attachment": false,
+    "list_id": "",
+    "raw_size": 326
+  }
+]
