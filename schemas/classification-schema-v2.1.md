@@ -66,7 +66,7 @@ NGO-Newsletter (Tierschutz, Umwelt, Politik) sind Massen-Mailings, auch wenn der
 - **NGO-Spenden-Mailing mit Mass-Mailing-Indikatoren** (mehrere Empfänger-Templates, „Liebe(r) Unterstützer:in", Spenden-CTA, unsubscribe-Link) → **`werbung`**
 - Reine individuelle persönliche Mail eines NGO-Mitglieds an User → `privat`
 
-**Konsequenz Phase 3.5b:** RASA Animal Shelter `<redacted@example.org>` „They Don't Understand War…" + „Keeping Them Safe…" → Spenden-Mass-Mailing → **`werbung`**. Validator hatte recht.
+**Konsequenz Phase 3.5b:** Animal-Shelter-Absender `<redacted>` „They Don't Understand War…" + „Keeping Them Safe…" → Spenden-Mass-Mailing → **`werbung`**. Validator hatte recht.
 
 ## Heuristik-Vorrang in v2.1
 
