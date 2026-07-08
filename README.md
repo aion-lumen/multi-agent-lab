@@ -55,22 +55,28 @@ python scripts/production_worker.py --dry-run --no-telegram \
 
 Full guide (incl. `make demo` seed for the folio UI demo): [docs/quickstart.md](docs/quickstart.md)
 
+**Pilot / Fremdrechner:** [PILOT.md](PILOT.md) — Install < 30 Min, `make demo-pilot`, `make preflight`.
+
+## Sicherheit: Capability-Entzug statt Filterung
+
+Produktions-Pfad (`scripts/`, kein `_archive/`): Netz nur **IMAP** (Account-Host) + **LM Studio** (`LM_STUDIO_BASE_URL`, Default localhost). Optional: Hermes localhost, Telegram (nur Learning-Mode). Kein Cloud-Triage, kein Auto-Send. Details: [PILOT.md § Sicherheit](PILOT.md#sicherheit-capability-entzug-statt-filterung).
+
 ## Screenshots (from folio UI)
 
 The pipeline is orchestrated and observed via folio's UI. Captured against the bundled demo state (`make demo`).
 
 <p align="center">
-  <img src="https://github.com/aion-lumen/folio/raw/main/docs/screenshots/release/02-pipeline-idle-20260611.png" width="720" alt="Pipeline overview — idle state" />
-  <br><sub><em>Pipeline overview — data-flow from IMAP through worker, validator, auto-übernahme into the Council pool.</em></sub>
+  <img src="docs/screenshots/02-pipeline-idle-20260611.png" width="720" alt="Pipeline overview — idle state" />
+  <br><sub><em>Pipeline overview — data-flow from IMAP through worker, validator, auto-übernahme into the Council pool. Council ist eine private Erweiterung des Betreibers und nicht Teil dieses Repos.</em></sub>
 </p>
 
 <p align="center">
-  <img src="https://github.com/aion-lumen/folio/raw/main/docs/screenshots/release/03-pipeline-validator-20260611.png" width="720" alt="Validator mid-run — three LLM voice cards (WARTET/LÄUFT/FERTIG)" />
+  <img src="docs/screenshots/03-pipeline-validator-20260611.png" width="720" alt="Validator mid-run — three LLM voice cards (WARTET/LÄUFT/FERTIG)" />
   <br><sub><em>Validator mid-run — three blind LLM voices (gemma-control · qwen35b-lens · qwen-validator), Delphi-Prinzip (no voice sees another's verdict).</em></sub>
 </p>
 
 <p align="center">
-  <img src="https://github.com/aion-lumen/folio/raw/main/docs/screenshots/release/05-verlauf-detail-20260611.png" width="720" alt="Verlauf detail — Block-Gründe + Worker-Imports" />
+  <img src="docs/screenshots/05-verlauf-detail-20260611.png" width="720" alt="Verlauf detail — Block-Gründe + Worker-Imports" />
   <br><sub><em>Run detail — per-mail Block-Gründe (out_of_corridor, decay, projektiert, price_on_request) + sampled worker-imports.</em></sub>
 </p>
 
@@ -82,6 +88,8 @@ The pipeline is orchestrated and observed via folio's UI. Captured against the b
 | `FOLIO_DB_PATH` | `~/.folio/folio.db` | demo + prod |
 | `COUNCIL_DB_PATH` | `~/.council/council.db` | demo + prod |
 | `MULTI_AGENT_CONFIG_DIR` | `<repo>/config` | demo + prod |
+| `CATEGORIES_YAML` | `<repo>/config/categories.yaml` | pilot domain sets |
+| `LM_STUDIO_BASE_URL` | `http://127.0.0.1:1234` | validator + plugin |
 | `AION_LUMEN_PATH` | `~/Projects/aion-lumen/multi-agent` | folio-side handoff (demo + prod) |
 | `LIFE_MAIL_ACCOUNTS_TOML` | `~/Projects/life-mail/accounts.toml` | prod only (live IMAP) |
 
