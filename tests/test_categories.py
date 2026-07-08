@@ -22,6 +22,17 @@ def test_default_categories_load():
     assert cfg.fallback_domain == "unsorted"
 
 
+def test_job_lead_category_loads():
+    import sys
+    sys.path.insert(0, str(REPO_ROOT / "scripts"))
+    from categories_loader import load_categories  # noqa: PLC0415
+
+    cfg = load_categories(CONFIG / "categories.yaml")
+    assert cfg.has("job-lead")
+    jl = cfg.get("job-lead")
+    assert "freelance@mirhamed.ch" in jl.recipient_aliases
+
+
 def test_pilot_praxis_categories_load():
     import sys
     sys.path.insert(0, str(REPO_ROOT / "scripts"))

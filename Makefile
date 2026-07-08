@@ -22,7 +22,7 @@ COUNCIL_DB := $(COUNCIL_DB_PATH)
 FOLIO_DB := $(FOLIO_DB_PATH)
 FEEDBACK_DB := $(FEEDBACK_DB_PATH)
 
-.PHONY: help demo demo-pilot demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas preflight
+.PHONY: help demo demo-pilot demo-job-leads demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas preflight
 
 help:
 	@echo "Targets (all demo* operate on ISOLATED *-demo.db files, real DBs untouched):"
@@ -122,6 +122,24 @@ demo-pilot: check-demo-dbs
 
 preflight:
 	$(PYTHON) scripts/preflight_pilot.py --skip-imap
+
+# Lead-adapter demo: classify job-lead via recipient-alias, extract + emit
+# folio interchange .md into an isolated demo inbox (no live ~/.folio write).
+# Uses the main categories.yaml (has job-lead), not the praxis-pilot set.
+LEAD_FIXTURE := $(abspath tests/fixtures/imap/job_leads_smoke.json)
+DEMO_LEAD_INBOX := $(abspath state/demo-folio-inbox)
+
+demo-job-leads:
+	@echo "─── Lead-adapter demo (job_leads_smoke.json → demo folio inbox) ──"
+	@rm -rf "$(DEMO_LEAD_INBOX)" "$(abspath state/lead-emit-ledger.json)"
+	@mkdir -p "$(DEMO_LEAD_INBOX)"
+	CATEGORIES_YAML=$(abspath config/categories.yaml) FOLIO_INBOX_PATH=$(DEMO_LEAD_INBOX) \
+	$(PYTHON) scripts/production_worker.py \
+		--account mirhamed --mode silent --no-telegram --no-kanban \
+		--tranche-size 25 --imap-fixture "$(LEAD_FIXTURE)" --dry-run
+	@echo ""
+	@echo "─── Emitted lead .md files → $(DEMO_LEAD_INBOX): ────────────"
+	@ls -1 "$(DEMO_LEAD_INBOX)" || true
 
 demo-force: check-demo-dbs
 	@echo "─── Re-seeding council-demo.db (force) ──────────────────────"

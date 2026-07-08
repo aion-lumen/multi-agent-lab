@@ -645,6 +645,7 @@ def classify_domain_actionability(
     user_context: dict | None = None,
     heuristic_markers: list[str] | None = None,
     body: str | None = None,
+    to_addr: str | None = None,
 ) -> ClassificationResult:
     """F.8 7-Step Pipeline. Replaces classify_immo.
 
@@ -656,10 +657,31 @@ def classify_domain_actionability(
 
     Bauteil-7 G5 (2026-06-09): optional `body` für Auto-Reply-Detection
     (Step 2.5). Default None → existing callers ohne Auto-Reply-Check.
+
+    Lead-Adapter (2026-07-08): optional `to_addr` → Recipient-Alias-Override
+    (Step 1.5). Default None → bestehende Caller/Tests unberührt.
     """
     ctx = user_context or DEFAULT_CONTEXT
     email, domain_part = _norm_sender(sender)
     matched_markers: list[str] = []
+
+    # Step 1.5: Recipient-Alias-Override (highest-confidence, user-controlled).
+    # A mail delivered to a category's `recipient_aliases` (e.g. the dedicated
+    # freelance@mirhamed.ch alias) forces that category, independent of sender.
+    if to_addr:
+        rcpt = (extract_email_address(to_addr) or to_addr).strip().lower()
+        if rcpt:
+            for cat in load_categories().categories:
+                if any(rcpt == a.strip().lower() for a in cat.recipient_aliases):
+                    matched_markers.append(f"override:recipient_alias:{cat.key}")
+                    return ClassificationResult(
+                        domain=cat.key,
+                        actionability=cat.default_actionability or "actionable",
+                        reason=f"recipient alias match: {rcpt}",
+                        confidence="high",
+                        matched_markers=matched_markers,
+                        plugin_class_hint=plugin_class,
+                    )
 
     # Step 1: Sender-Priority-Override
     sp = ctx.get("sender_priorities", {}) or {}

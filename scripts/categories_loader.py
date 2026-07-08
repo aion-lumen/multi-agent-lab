@@ -27,6 +27,9 @@ class CategoryDef:
     priority_subject_keywords: tuple[str, ...] = ()
     sender_prefixes: tuple[str, ...] = ()
     domain_tokens: tuple[str, ...] = ()
+    # Recipient/To addresses that force this category (highest-confidence signal,
+    # e.g. a dedicated alias like freelance@mirhamed.ch). Matched before sender heuristics.
+    recipient_aliases: tuple[str, ...] = ()
     default_actionability: str = "actionable"
     priority_boost: str | None = None
     match_non_bulk_sender: bool = False
@@ -70,6 +73,7 @@ def _parse_category(raw: dict) -> CategoryDef:
         priority_subject_keywords=_tuple_list(raw.get("priority_subject_keywords")),
         sender_prefixes=_tuple_list(raw.get("sender_prefixes")),
         domain_tokens=_tuple_list(raw.get("domain_tokens")),
+        recipient_aliases=_tuple_list(raw.get("recipient_aliases")),
         default_actionability=str(raw.get("default_actionability") or "actionable"),
         priority_boost=raw.get("priority_boost"),
         match_non_bulk_sender=bool(raw.get("match_non_bulk_sender")),

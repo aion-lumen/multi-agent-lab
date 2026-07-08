@@ -81,6 +81,8 @@ from domain_actionability import (  # noqa: E402
     load_user_context,
 )
 from categories_loader import has_category  # noqa: E402
+from lead_heuristic import extract_lead  # noqa: E402
+from lead_emitter import emit_lead  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -790,7 +792,28 @@ def process_envelope(
         heuristic_markers=heuristic.matched_markers,
         # Bauteil-7 G5 (2026-06-09): body fuer Auto-Reply-Detection.
         body=getattr(env, "body_text", None) or getattr(env, "body", None),
+        # Lead-Adapter (2026-07-08): recipient-alias signal (freelance@…).
+        to_addr=getattr(env, "to_addr", None),
     )
+
+    # Lead-Adapter (2026-07-08): job-lead → extract fields + emit folio .md.
+    # The .md drop is Spec-sanctioned (not a live DB/kanban mutation). Keep a
+    # plain --dry-run side-effect-free: only emit in dry-run when FOLIO_INBOX_PATH
+    # is explicitly overridden (demo/test); a real (non-dry) run always emits.
+    if (classification_f8.domain == "job-lead"
+            and classification_f8.actionability == "actionable"
+            and ((not args.dry_run) or os.environ.get("FOLIO_INBOX_PATH"))):
+        try:
+            lead = extract_lead(
+                sender=f"{env.from_name} <{env.from_addr}>".strip(),
+                subject=env.subject or "",
+                body=getattr(env, "body_text", None) or getattr(env, "body", "") or "",
+            )
+            lead_path = emit_lead(lead, env.uid)
+            log.info("[lead] emitted uid=%s dedup_key=%s → %s",
+                     env.uid, lead.dedup_key, lead_path)
+        except Exception as e:  # noqa: BLE001
+            log.warning("[lead] emit failed for uid=%s: %s", env.uid, e)
 
     ts_tg_sent = _utc_now_iso()
     user = _call_telegram(

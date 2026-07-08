@@ -53,6 +53,30 @@ categories:
     default_actionability: actionable
     priority_boost: jobsuche
 
+  - key: job-lead
+    label: Job-Lead
+    description: "Freelance/Projekt-Leads von Portalen — via Alias freelance@mirhamed.ch"
+    # PRIMARY signal: mail delivered to the dedicated freelance alias. Reliable,
+    # user-controlled — matched before sender heuristics.
+    recipient_aliases:
+      - freelance@mirhamed.ch
+    # SECONDARY (placeholder — tune once real portal notifications arrive; the
+    # actual sender domains/formats are not yet known).
+    sender_domains:
+      - freelancermap.de
+      - freelance.de
+      - gulp.de
+      - freelancer.com
+    subject_keywords:
+      - projekt
+      - projektangebot
+      - freelance
+      - freiberufler
+      - auftrag
+      - ausschreibung
+    default_actionability: actionable
+    priority_boost: jobsuche
+
   - key: shopping
     label: Shopping
     description: "Bestellungen, Paketzustellung, Lieferungen, Versand"

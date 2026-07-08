@@ -13,6 +13,9 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 STATE_DIR = Path(os.environ.get("MULTI_AGENT_STATE_DIR", str(_REPO_ROOT / "state")))
 FEEDBACK_DB = Path(os.environ.get("FEEDBACK_DB_PATH", str(STATE_DIR / "feedback.db")))
 FOLIO_DB = Path(os.environ.get("FOLIO_DB_PATH", str(_HOME / ".folio" / "folio.db")))
+# Folio import-inbox: worker drops interchange .md files here (Spec-sanctioned,
+# no cross-DB write). Override FOLIO_INBOX_PATH for demo/dry-run.
+FOLIO_INBOX_PATH = Path(os.environ.get("FOLIO_INBOX_PATH", str(_HOME / ".folio" / "inbox")))
 CONFIG_DIR = Path(os.environ.get("MULTI_AGENT_CONFIG_DIR", str(_REPO_ROOT / "config")))
 REGELWERK_YAML = CONFIG_DIR / "regelwerk.yaml"
 USER_CONTEXT_YAML = CONFIG_DIR / "user_context.yaml"
