@@ -1,0 +1,21 @@
+# Example categories config — copy to categories.yaml and adapt.
+# See PILOT.md for pilot-praxis preset (categories.pilot-praxis.yaml).
+schema_version: v1
+fallback_domain: unsorted
+
+categories:
+  - key: immo
+    label: Immobilien
+    description: "Immobilien: Portale, Privat, Inserate"
+    sender_domains:
+      - homegate.ch
+    subject_keywords:
+      - immobilie
+    default_actionability: actionable
+    priority_boost: hauskauf
+
+  - key: unsorted
+    label: Sonstiges
+    description: "Kein klares Match"
+    is_fallback: true
+    default_actionability: actionable

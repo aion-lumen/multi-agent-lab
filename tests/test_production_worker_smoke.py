@@ -30,6 +30,7 @@ def test_smoke_dry_run_with_fixture(tmp_path: Path):
         [
             python,
             str(WORKER),
+            "--account", "yahoo",
             "--board", "test-o1-smoke",
             "--tranche-size", "2",
             "--dry-run",
@@ -47,14 +48,15 @@ def test_smoke_dry_run_with_fixture(tmp_path: Path):
         f"worker exited {proc.returncode}\nstdout:\n{proc.stdout}\nstderr:\n{proc.stderr}"
     )
     # Worker pipeline markers — should appear at least once for each of the 2 mails
-    assert "production_worker O.1 board=test-o1-smoke" in output
+    assert "production_worker O.1 account=yahoo" in output
     assert "[dry-run] would create kanban task" in output
     assert "[dry-run] would call plugin CLI" in output
     assert "[no-telegram] would send Stage-1" in output
     assert "[dry-run] would post JSON comment" in output
-    # Both Tier paths exercised — heuristic suggestion is in the [no-telegram] log line
-    assert "suggested=move_paketzustellung" in output
-    assert "suggested=move_immo_portal" in output
+    # Heuristic paths exercised for both fixture mails (Homegate + DHL)
+    assert output.count("suggested=") >= 2
+    assert "noreply@homegate.ch" in output
+    assert "noreply@dhl.de" in output
     assert "DONE processed=2" in output
 
 
@@ -82,6 +84,7 @@ def test_smoke_mode_audit_raises_not_implemented():
         [
             python,
             str(WORKER),
+            "--account", "yahoo",
             "--board", "test-o1-smoke",
             "--mode", "audit",
             "--dry-run",

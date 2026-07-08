@@ -49,6 +49,7 @@ try:
         DEFAULT_CONTEXT,
         DEFAULT_REGELWERK,
     )
+    from categories_loader import get_domain_keys, build_lens_prompt_template
 except ImportError as _e:
     print(
         f"[CRITICAL] failed to import domain_actionability ({_e}) — running with "
@@ -66,6 +67,10 @@ except ImportError as _e:
         return DEFAULT_REGELWERK
     def validate_regelwerk_against_context(rw, uc):  # type: ignore
         return None
+    def get_domain_keys(path=None):  # type: ignore
+        return ("immo", "job", "shopping", "finance", "kontakt", "werbung", "system", "unsorted")
+    def build_lens_prompt_template(cfg=None):  # type: ignore
+        return LENS_PROMPT_FALLBACK
 
 try:
     from model_swap import (
@@ -99,72 +104,41 @@ VALIDATOR_MODEL = os.environ.get("VALIDATOR_MODEL", "gemma-4-26b-a4b-it-mlx")
 # model selection.
 LM_STUDIO_BASE_URL = os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
 
-# F.8.5: correspondence → kontakt rename + werbung als 8. Domain.
-DOMAIN_KEYS = ("immo", "job", "shopping", "finance", "kontakt", "werbung", "system", "unsorted")
+# F.8.5: domain keys loaded from categories.yaml (pilot sets may differ).
 ACTIONABILITY_KEYS = ("actionable", "archive", "archive-silent")
 
 
-# Direktive 2026-05-26 Lens-Fix: dediziertes Lens-Prompt OHNE Heuristik-/Plugin-
-# Hint-Zeilen. Delphi-Prinzip: jede Lens schaut allein auf dieselbe rohe Mail,
-# kennt KEIN fremdes Urteil (auch nicht „n/a"-Erwähnungen anderer Stimmen).
-LENS_PROMPT = """\
-Du bist ein blinder Klassifikator für E-Mail-Triage. Du arbeitest unabhängig —
-es gibt keine vorherigen Urteile, kein Plugin-Hint, keine Heuristik-Vorgabe.
-Klassifiziere die E-Mail nur aus dem, was du selbst siehst, auf 2 Achsen:
-domain × actionability.
+def _domain_keys() -> tuple[str, ...]:
+    return get_domain_keys()
 
-Domain (genau EINE):
-  - immo            (Immobilien: Portale, Privat, Inserate)
-  - job             (Job-Suche: LinkedIn, Indeed, Karriere)
-  - shopping        (Bestellungen, Paketzustellung, Lieferungen, Versand)
-  - finance         (Rechnungen, Versicherungen, Steuern, Banken, Abos)
-  - kontakt         (private Personen, direkte berufliche Kommunikation, kein Bulk-Sender)
-  - werbung         (Newsletter, Marketing, Promo, Aktionen, Rabatte)
-  - system          (Security-Alerts, 2FA, Account-Verifizierung)
-  - unsorted        (kein klares Match)
 
-WICHTIG — Substanz-Definition für domain=immo (Bauteil 8):
-Eine Mail ist nur dann domain=immo, wenn sie sich auf EIN KONKRETES
-OBJEKT bezieht — erkennbar an mindestens ZWEI der folgenden Stammdaten:
-  - Adresse oder PLZ
-  - Preis (€/CHF)
-  - qm (Wohnfläche)
-  - Inserat-URL mit /expose/, /Expose/, /Detail/ oder ähnlichem Pattern
-Ratgeber-Artikel, Portal-Newsletter ("Gemeinderatgeber", "Markt-Übersicht"),
-Marketing-Mails ohne konkretes Objekt → domain=werbung, NICHT immo.
-Themen-Relevanz allein reicht NICHT. "Gemeinderatgeber Homegate" ist
-immo-themen-relevant aber kein immo, weil kein konkretes Objekt dahinter.
+# Legacy static fallback if categories_loader import failed.
+LENS_PROMPT_FALLBACK = """\
+Du bist ein blinder Klassifikator für E-Mail-Triage.
+Klassifiziere domain × actionability.
 
-Beispiele:
-  - Positiv (immo):  "1 neue Immobilie: Reihenhaus, Rua das Oliveiras 18,
-    8100 Loulé, 4 Zimmer, 120 qm, 450.000 EUR. /expose/123456"
-    → domain=immo, actionability=actionable
-  - Negativ (werbung): "Portal-Marktbericht: Preise im Algarve steigen.
-    Lesen Sie unsere Analyse." → domain=werbung, actionability=archive-silent
-
-Actionability (genau EINE — Definitionen aus zentralem Regelwerk):
+Actionability (genau EINE):
 {actionability_block}
 
-User-Context (relevant für Priorisierung):
+User-Context:
 {user_context_block}
 
 E-Mail:
   Sender:  {sender}
   Subject: {subject}
-  Body (erste 1000 Zeichen):
+  Body:
 {body}
 
-Achte besonders auf:
-  - Mails von Job/Immo-Portalen sind oft `werbung`/`archive-silent` AUSSER User hat
-    aktive Priorität (z.B. hauskauf → immo bleibt `actionable`).
-  - Paketzustellung-Mails sind IMMER `actionable` (User muss Lieferung wahrnehmen).
-  - Private Personen ohne Bulk-Sender-Prefix sind `kontakt` + `actionable`.
-  - Newsletter/Marketing/Promo-Mails sind `werbung` + `archive-silent` (default),
-    AUSSER sie sind zeitkritisch (Sale läuft ab in 24h → actionable).
-
-Antworte AUSSCHLIESSLICH als JSON:
+Antworte als JSON:
 {{"domain": "<domain>", "actionability": "<actionability>", "confidence": <0.0-1.0>, "reasoning": "<max 200 Zeichen>"}}
 """
+
+
+def _lens_prompt() -> str:
+    try:
+        return build_lens_prompt_template()
+    except Exception:  # noqa: BLE001
+        return LENS_PROMPT_FALLBACK
 
 log = logging.getLogger("validator_batch")
 logging.basicConfig(
@@ -345,7 +319,7 @@ def call_lens_lm_studio(
     """
     body_excerpt = (row.get("body_excerpt") or "")[:1000]
     # LENS_PROMPT is the blind variant — no heuristic/plugin hint anywhere.
-    prompt = LENS_PROMPT.format(
+    prompt = _lens_prompt().format(
         actionability_block=format_actionability_block(regelwerk),
         user_context_block=format_user_context_block(user_context, regelwerk),
         sender=row.get("sender", ""),
@@ -381,7 +355,7 @@ def call_lens_lm_studio(
             log.warning("LM-Studio empty content after strip (model=%s)", model_id)
             return None
         parsed = json.loads(text)
-        if parsed.get("domain") not in DOMAIN_KEYS:
+        if parsed.get("domain") not in _domain_keys():
             log.warning("invalid domain from lens (model=%s): %r",
                         model_id, parsed.get("domain"))
             return None
@@ -413,6 +387,21 @@ def call_lens_lm_studio(
         return None
 
 
+def _ensure_folio_schema(conn: sqlite3.Connection) -> None:
+    """Auto-init folio.db from bundled schema when validator_opinions is missing."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='validator_opinions'"
+    ).fetchone()
+    if row:
+        return
+    schema_path = Path(__file__).resolve().parent.parent / "data" / "schemas" / "folio.schema.sql"
+    if not schema_path.exists():
+        raise RuntimeError(f"folio schema missing at {schema_path}")
+    log.warning("folio.db missing validator_opinions — initializing from %s", schema_path)
+    conn.executescript(schema_path.read_text(encoding="utf-8"))
+    conn.commit()
+
+
 def write_opinion(row: dict, opinion: dict, *, validator_model: Optional[str] = None) -> None:
     """Insert into folio.db.validator_opinions with 2-axes columns (UPSERT).
 
@@ -424,6 +413,7 @@ def write_opinion(row: dict, opinion: dict, *, validator_model: Optional[str] = 
     effective_model = validator_model or VALIDATOR_MODEL
     conn = sqlite3.connect(str(FOLIO_DB))
     try:
+        _ensure_folio_schema(conn)
         # F.8 Block-E: validator_action wird mit domain+actionability als kompakter String befüllt
         # für Back-Compat (alte Readers, die nur diese Spalte kennen). Neue Readers nutzen
         # validator_domain + validator_actionability.

@@ -16,6 +16,9 @@ FOLIO_DB = Path(os.environ.get("FOLIO_DB_PATH", str(_HOME / ".folio" / "folio.db
 CONFIG_DIR = Path(os.environ.get("MULTI_AGENT_CONFIG_DIR", str(_REPO_ROOT / "config")))
 REGELWERK_YAML = CONFIG_DIR / "regelwerk.yaml"
 USER_CONTEXT_YAML = CONFIG_DIR / "user_context.yaml"
+CATEGORIES_YAML = Path(
+    os.environ.get("CATEGORIES_YAML", str(CONFIG_DIR / "categories.yaml"))
+)
 IMMO_WHITELIST_YAML = CONFIG_DIR / "immo_whitelist.yaml"
 COUNCIL_CONFIG_DIR = Path(
     os.environ.get("COUNCIL_CONFIG_PATH", str(_HOME / "Projects" / "aion-lumen" / "council" / "config"))

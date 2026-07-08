@@ -22,7 +22,7 @@ COUNCIL_DB := $(COUNCIL_DB_PATH)
 FOLIO_DB := $(FOLIO_DB_PATH)
 FEEDBACK_DB := $(FEEDBACK_DB_PATH)
 
-.PHONY: help demo demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas
+.PHONY: help demo demo-pilot demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas preflight
 
 help:
 	@echo "Targets (all demo* operate on ISOLATED *-demo.db files, real DBs untouched):"
@@ -37,7 +37,8 @@ help:
 	@echo "                             schema dumps in data/schemas/ from the real DBs."
 	@echo "                             Run before tagging a release if schemas changed."
 	@echo "  make inventory             Print current demo-state inventory."
-	@echo "  make test                  Run pytest suite."
+	@echo "  make demo-pilot             Pilot-Praxis: demo_praxis.json + categories.pilot-praxis.yaml"
+	@echo "  make preflight              Run preflight_pilot.py (configs + LM Studio)"
 	@echo ""
 	@echo "Demo DBs (set via env, override-able):"
 	@echo "  FOLIO_DB_PATH    = $(FOLIO_DB_PATH)"
@@ -97,6 +98,30 @@ demo: check-demo-dbs
 		--folio-db "$(FOLIO_DB_PATH)"
 	@echo ""
 	@$(MAKE) inventory
+
+# Pilot demo: praxis fixture + pilot categories, heuristic-only worker run.
+export CATEGORIES_YAML := $(abspath config/categories.pilot-praxis.yaml)
+PILOT_FIXTURE := $(abspath tests/fixtures/imap/demo_praxis.json)
+
+demo-pilot: check-demo-dbs
+	@echo "─── Pilot demo (praxis categories + demo_praxis.json) ─────"
+	@echo "  CATEGORIES_YAML=$(CATEGORIES_YAML)"
+	$(PYTHON) scripts/production_worker.py \
+		--account mirhamed \
+		--mode silent \
+		--no-telegram \
+		--no-kanban \
+		--tranche-size 25 \
+		--imap-fixture "$(PILOT_FIXTURE)" \
+		--dry-run
+	@echo ""
+	@echo "─── Dry-run complete. For live heuristic write, re-run without --dry-run ─"
+	@echo "─── Validator (needs LM Studio): ────────────────────────────"
+	@echo "  $(PYTHON) scripts/validator_batch.py --scope all --limit 5 --dry-run  # if supported"
+	@$(MAKE) preflight
+
+preflight:
+	$(PYTHON) scripts/preflight_pilot.py --skip-imap
 
 demo-force: check-demo-dbs
 	@echo "─── Re-seeding council-demo.db (force) ──────────────────────"

@@ -34,10 +34,11 @@ from typing import Literal
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sender_heuristic import extract_domain, extract_email_address  # noqa: E402
+from categories_loader import load_categories, has_category  # noqa: E402
 
 log = logging.getLogger("domain_actionability")
 
-Domain = Literal["immo", "job", "shopping", "finance", "kontakt", "werbung", "system", "unsorted"]
+Domain = str  # config-driven; keys from categories.yaml
 # Bauteil-7 G5 (2026-06-09): neuer Wert 'auto_reply' fuer Makler-Auto-
 # Replies (Widerrufsbelehrungen, Maklerauftrag-Bestätigungen, Termin-
 # Eingangs-Bestätigungen). Domain bleibt typischerweise immo oder
@@ -301,83 +302,51 @@ def _prefix_matches_any(prefix: str, tokens: tuple[str, ...]) -> str | None:
 
 
 def _detect_domain(email: str, domain: str, subject: str) -> tuple[Domain, list[str]]:
-    """Sender + subject heuristic. Returns (domain, matched_markers)."""
+    """Sender + subject heuristic from categories.yaml. Returns (domain, matched_markers)."""
+    cfg = load_categories()
     markers: list[str] = []
     subj_lower = subject.lower()
-
-    # Immo
-    for d in IMMO_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"immo:domain:{d}")
-            return ("immo", markers)
-    if _subject_matches_any(subj_lower, IMMO_SUBJECT_KEYWORDS):
-        markers.append("immo:subject")
-        return ("immo", markers)
-
-    # Job
-    for d in JOB_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"job:domain:{d}")
-            return ("job", markers)
-    if _subject_matches_any(subj_lower, JOB_SUBJECT_KEYWORDS):
-        markers.append("job:subject")
-        return ("job", markers)
-
-    # Shopping (paketzustellung first, dann generic-shopping)
-    if _subject_matches_any(subj_lower, PAKETZUSTELLUNG_KEYWORDS):
-        markers.append("shopping:paketzustellung-subject")
-        return ("shopping", markers)
-    for d in SHOPPING_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"shopping:domain:{d}")
-            return ("shopping", markers)
-
-    # Finance
-    for d in FINANCE_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"finance:domain:{d}")
-            return ("finance", markers)
-    if _subject_matches_any(subj_lower, FINANCE_SUBJECT_KEYWORDS):
-        markers.append("finance:subject")
-        return ("finance", markers)
-
-    # System — strict TLD-Match (equality + .endswith) + separate
-    # Brand-Token-Liste (intentional substring-match, explizit ausgewiesen).
-    for d in SYSTEM_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"system:domain:{d}")
-            return ("system", markers)
-    for t in SYSTEM_DOMAIN_TOKENS:
-        if t in domain:
-            markers.append(f"system:domain-token:{t}")
-            return ("system", markers)
-    if _subject_matches_any(subj_lower, SYSTEM_SUBJECT_KEYWORDS):
-        markers.append("system:subject")
-        return ("system", markers)
-
-    # F.8.5 — Werbung (Marketing, Newsletter). Geprüft vor kontakt damit
-    # noreply@brand-Marketing nicht als bulk-system-Sender fehlklassifiziert wird.
-    for d in WERBUNG_DOMAINS:
-        if domain == d or domain.endswith("." + d):
-            markers.append(f"werbung:domain:{d}")
-            return ("werbung", markers)
     prefix = email.split("@", 1)[0] if "@" in email else email
-    if _prefix_matches_any(prefix, WERBUNG_SENDER_PREFIXES) is not None:
-        markers.append(f"werbung:prefix:{prefix[:20]}")
-        return ("werbung", markers)
-    if _subject_matches_any(subj_lower, WERBUNG_SUBJECT_KEYWORDS):
-        markers.append("werbung:subject")
-        return ("werbung", markers)
 
-    # Kontakt: non-bulk-sender (private person). F.8.5: renamed from correspondence.
-    is_bulk = _prefix_matches_any(prefix, BULK_SENDER_PREFIXES) is not None
-    if not is_bulk:
-        markers.append("kontakt:non-bulk-prefix")
-        return ("kontakt", markers)
+    for cat in cfg.categories:
+        if cat.is_fallback or cat.match_non_bulk_sender:
+            continue
 
-    # Default fallback
-    markers.append("unsorted:fallback")
-    return ("unsorted", markers)
+        if cat.priority_subject_keywords:
+            kw = _subject_matches_any(subj_lower, cat.priority_subject_keywords)
+            if kw:
+                markers.append(f"{cat.key}:paketzustellung-subject")
+                return (cat.key, markers)
+
+        for d in cat.sender_domains:
+            if domain == d or domain.endswith("." + d):
+                markers.append(f"{cat.key}:domain:{d}")
+                return (cat.key, markers)
+
+        for t in cat.domain_tokens:
+            if t in domain:
+                markers.append(f"{cat.key}:domain-token:{t}")
+                return (cat.key, markers)
+
+        kw = _subject_matches_any(subj_lower, cat.subject_keywords)
+        if kw:
+            markers.append(f"{cat.key}:subject")
+            return (cat.key, markers)
+
+        if cat.sender_prefixes and _prefix_matches_any(prefix, cat.sender_prefixes) is not None:
+            markers.append(f"{cat.key}:prefix:{prefix[:20]}")
+            return (cat.key, markers)
+
+    for cat in cfg.categories:
+        if cat.match_non_bulk_sender:
+            is_bulk = _prefix_matches_any(prefix, BULK_SENDER_PREFIXES) is not None
+            if not is_bulk:
+                markers.append(f"{cat.key}:non-bulk-prefix")
+                return (cat.key, markers)
+
+    fb = cfg.fallback_domain
+    markers.append(f"{fb}:fallback")
+    return (fb, markers)
 
 
 def _refine_with_plugin_class(
@@ -409,13 +378,18 @@ def _refine_with_plugin_class(
 
 
 def _initial_actionability(domain: Domain, markers: list[str]) -> Actionability:
-    """Step 4 — per-domain default actionability."""
-    if any(m.startswith("shopping:paketzustellung") for m in markers):
+    """Step 4 — per-domain default actionability from categories config."""
+    if any(":paketzustellung-subject" in m for m in markers):
         return "actionable"  # paketzustellung wird IMMER actionable
+    cat = load_categories().get(domain)
+    if cat and cat.default_actionability in (
+        "actionable", "archive", "archive-silent", "uebernommen", "auto_reply",
+    ):
+        return cat.default_actionability  # type: ignore[return-value]
     if domain in ("immo", "job", "finance", "kontakt"):
         return "actionable"
     if domain == "werbung":
-        return "archive-silent"  # F.8.5: Werbung defaultet silent
+        return "archive-silent"
     if domain in ("shopping", "system"):
         return "archive"
     return "actionable"  # unsorted force-review
@@ -491,11 +465,11 @@ def _apply_priority_boost(
     markers: list[str],
 ) -> Actionability:
     """Step 6 — Aktive-Lebenssituation overridet time-decay-Archive."""
-    domain_priority_map = {
-        "immo": "hauskauf",
-        "job": "jobsuche",
-    }
-    priority_key = domain_priority_map.get(domain)
+    cat = load_categories().get(domain)
+    priority_key = cat.priority_boost if cat else None
+    if not priority_key:
+        domain_priority_map = {"immo": "hauskauf", "job": "jobsuche"}
+        priority_key = domain_priority_map.get(domain)
     if priority_key and priority_key in (active_priorities or []):
         if actionability == "archive":
             markers.append(f"boost:{priority_key}→actionable")
@@ -741,7 +715,7 @@ def classify_domain_actionability(
     # obwohl domain=unsorted/shopping ist. Nur Mails mit detected
     # domain=immo werden als Auto-Reply klassifiziert — andere folgen
     # der normalen Klassifikations-Pipeline.
-    if detected_domain == "immo" and _detect_auto_reply(subject, body):
+    if has_category("immo") and detected_domain == "immo" and _detect_auto_reply(subject, body):
         matched_markers.append("auto_reply:detected")
         return ClassificationResult(
             domain=detected_domain,

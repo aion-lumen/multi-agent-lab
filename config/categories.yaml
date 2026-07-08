@@ -1,0 +1,183 @@
+# Default triage categories — mirrors legacy 8-domain set (Afschin production).
+# Override via CATEGORIES_YAML env (e.g. config/categories.pilot-praxis.yaml).
+schema_version: v1
+fallback_domain: unsorted
+
+categories:
+  - key: immo
+    label: Immobilien
+    description: "Immobilien: Portale, Privat, Inserate"
+    sender_domains:
+      - immowelt.de
+      - immoscout24.ch
+      - immobilienscout24.de
+      - homegate.ch
+      - newhome.ch
+      - comparis.ch
+      - engelvoelkers.com
+      - century21.de
+      - century21.com
+    subject_keywords:
+      - immobilie
+      - immobilien
+      - wohnung kaufen
+      - haus kaufen
+    default_actionability: actionable
+    priority_boost: hauskauf
+
+  - key: job
+    label: Job
+    description: "Job-Suche: LinkedIn, Indeed, Karriere"
+    sender_domains:
+      - linkedin.com
+      - indeed.com
+      - indeed.de
+      - xing.com
+      - stepstone.de
+    subject_keywords:
+      - bewerbung
+      - bewerbungen
+      - karriere
+      - karrieren
+      - vacancy
+      - vacancies
+      - job alert
+      - job alerts
+      - stelle
+      - stellen
+      - stellenangebot
+      - stellenangebote
+      - stellenanzeige
+      - stellenanzeigen
+      - stellenausschreibung
+    default_actionability: actionable
+    priority_boost: jobsuche
+
+  - key: shopping
+    label: Shopping
+    description: "Bestellungen, Paketzustellung, Lieferungen, Versand"
+    sender_domains:
+      - amazon.de
+      - amazon.com
+      - amazon.co.uk
+      - easycosmetic.de
+      - zalando.de
+      - zalando.com
+      - dhl.de
+      - dpd.com
+      - ups.com
+      - migros.ch
+      - digitec.ch
+    priority_subject_keywords:
+      - paket
+      - pakete
+      - zustellung
+      - zustellungen
+      - lieferung
+      - lieferungen
+      - lieferbestätigung
+      - geliefert
+      - versand
+      - versandbestätigung
+      - versandbenachrichtigung
+      - tracking
+      - sendung
+      - sendungen
+      - sendungsverfolgung
+    default_actionability: archive
+
+  - key: finance
+    label: Finance
+    description: "Rechnungen, Versicherungen, Steuern, Banken, Abos"
+    sender_domains:
+      - paypal.com
+      - paypal.de
+      - sparkasse.de
+      - postfinance.ch
+      - ubs.com
+      - credit-suisse.com
+      - vodafone.de
+      - bafu.admin.ch
+      - steueramt.ch
+    subject_keywords:
+      - rechnung
+      - rechnungen
+      - quittung
+      - quittungen
+      - steuer
+      - steuern
+      - steuererklärung
+      - steuerberatung
+      - versicherung
+      - versicherungen
+      - abonnement
+      - abonnements
+      - invoice
+      - invoices
+    default_actionability: actionable
+
+  - key: system
+    label: System
+    description: "Security-Alerts, 2FA, Account-Verifizierung"
+    sender_domains:
+      - anthropic.com
+      - infoemail.microsoft.com
+      - github.com
+    domain_tokens:
+      - microsoftrewards
+    subject_keywords:
+      - security alert
+      - verification
+      - two-factor
+      - password reset
+    default_actionability: archive
+
+  - key: werbung
+    label: Werbung
+    description: "Newsletter, Marketing, Promo, Aktionen, Rabatte"
+    sender_domains:
+      - substack.com
+      - e.heise.de
+      - newsletter.zalando.de
+      - email.amazon.de
+      - email.amazon.com
+      - mail.beehiiv.com
+      - mailchimpapp.com
+      - list-manage.com
+      - sendinblue.com
+      - brevo.com
+    sender_prefixes:
+      - newsletter
+      - marketing
+      - deals
+      - promo
+      - promotions
+    subject_keywords:
+      - newsletter
+      - newsletters
+      - sale
+      - sales
+      - rabatt
+      - rabatte
+      - aktion
+      - aktionen
+      - angebot
+      - angebote
+      - promo
+      - promos
+      - "% off"
+      - "% rabatt"
+      - exklusiv
+    default_actionability: archive-silent
+
+  - key: kontakt
+    label: Kontakt
+    description: "Private Personen, direkte berufliche Kommunikation, kein Bulk-Sender"
+    match_non_bulk_sender: true
+    default_actionability: actionable
+
+  - key: unsorted
+    label: Unsortiert
+    description: "Kein klares Match"
+    is_fallback: true
+    default_actionability: actionable

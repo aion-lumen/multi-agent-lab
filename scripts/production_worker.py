@@ -80,12 +80,14 @@ from domain_actionability import (  # noqa: E402
     classify_domain_actionability,
     load_user_context,
 )
+from categories_loader import has_category  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
 
-LM_STUDIO_MODELS_URL = "http://127.0.0.1:1234/v1/models"
+LM_STUDIO_BASE_URL = os.environ.get("LM_STUDIO_BASE_URL", "http://127.0.0.1:1234")
+LM_STUDIO_MODELS_URL = f"{LM_STUDIO_BASE_URL}/v1/models"
 EXPECTED_LM_MODELS = ("qwen3.6-35b-a3b-ud-mlx", "gemma-4-e4b-it-ud-mlx")
 
 PLUGIN_TIMEOUT_SECONDS = 240  # plugin docs: 47ms heuristic + 21.6s exec + ~42s cascade
@@ -216,6 +218,13 @@ def post_json_comment(task_id: str, payload: dict, author: str = "production_wor
 # ---------------------------------------------------------------------------
 
 
+def _kanban_enabled(args: argparse.Namespace) -> bool:
+    """Kanban side-effects only when hermes available and not explicitly disabled."""
+    if args.dry_run or getattr(args, "no_kanban", False):
+        return False
+    return shutil.which("hermes") is not None
+
+
 def _preflight(args: argparse.Namespace) -> list[str]:
     """Return a list of failure-messages. Empty list means OK."""
     failures: list[str] = []
@@ -230,22 +239,27 @@ def _preflight(args: argparse.Namespace) -> list[str]:
         else:
             try:
                 accounts = tomllib.loads(ACCOUNTS_TOML.read_text(encoding="utf-8"))
-                if args.account not in (accounts.get("accounts") or {}):
+                acct_map = accounts.get("accounts") or {}
+                if args.account not in acct_map:
                     failures.append(
                         f"accounts.toml has no [accounts.{args.account}] entry"
                     )
+                else:
+                    acct = acct_map[args.account]
+                    has_alt_cred = bool(acct.get("password_env") or acct.get("password_cmd"))
+                    if not has_alt_cred:
+                        if shutil.which("bw") is None:
+                            failures.append("`bw` (Bitwarden CLI) not in PATH")
+                        if shutil.which("life-mail-passwd") is None:
+                            failures.append("`life-mail-passwd` helper not in PATH")
             except (tomllib.TOMLDecodeError, OSError) as e:
                 failures.append(f"accounts.toml unreadable: {e}")
-        if shutil.which("bw") is None:
-            failures.append("`bw` (Bitwarden CLI) not in PATH")
-        if shutil.which("life-mail-passwd") is None:
-            failures.append("`life-mail-passwd` helper not in PATH")
 
-    if not PLUGIN_CLI.exists():
+    if _kanban_enabled(args) and not PLUGIN_CLI.exists():
         failures.append(f"plugin CLI missing at {PLUGIN_CLI}")
 
-    if shutil.which("hermes") is None:
-        failures.append("`hermes` CLI not in PATH")
+    if not _kanban_enabled(args) and shutil.which("hermes") is None and not getattr(args, "no_kanban", False):
+        log.info("preflight: hermes CLI not in PATH — kanban side-effects disabled")
 
     # F.7: silent-Mode überspringt Telegram-Approval → keine Telegram-env-vars nötig.
     if not args.no_telegram and args.mode != "silent":
@@ -254,8 +268,8 @@ def _preflight(args: argparse.Namespace) -> list[str]:
         if not os.environ.get("AION_EMAIL_FEEDBACK_CHAT_ID"):
             failures.append("AION_EMAIL_FEEDBACK_CHAT_ID missing in env")
 
-    # LM Studio is required for non-dry-run real runs (plugin-CLI calls it).
-    if not args.dry_run:
+    # LM Studio is required for non-dry-run real runs with plugin (kanban path).
+    if not args.dry_run and _kanban_enabled(args):
         try:
             resp = requests.get(LM_STUDIO_MODELS_URL, timeout=5)
             if resp.status_code == 200:
@@ -283,6 +297,20 @@ def _preflight(args: argparse.Namespace) -> list[str]:
 
 
 VALID_ACCOUNTS = ("yahoo", "gmail", "mirhamed")
+
+
+def _resolve_password(acct: dict) -> str | None:
+    """Resolve IMAP password from password_env, password_cmd, or None (→ bw_item)."""
+    env_key = acct.get("password_env")
+    if env_key:
+        val = os.environ.get(str(env_key))
+        if not val:
+            raise RuntimeError(f"password_env {env_key!r} is unset")
+        return val
+    cmd = acct.get("password_cmd")
+    if cmd:
+        return subprocess.check_output(cmd, shell=True, text=True, timeout=30).strip()
+    return None
 
 
 def _load_account(account_id: str) -> dict:
@@ -319,11 +347,13 @@ def _open_imap_session(args: argparse.Namespace):
     # Real path
     from mail_fetcher import IMAPSession  # type: ignore[import-not-found]
     acct = _load_account(args.account)
+    password = _resolve_password(acct)
     return IMAPSession(
         host=acct["host"],
         port=acct["port"],
         login=acct["login"],
-        bw_item=acct["bw_item"],
+        bw_item=acct.get("bw_item", ""),
+        password=password,
     )
 
 
@@ -504,6 +534,21 @@ def _envelope_date_iso(raw: str | None) -> str | None:
         return None
 
 
+def _ensure_feedback_schema(conn: sqlite3.Connection) -> None:
+    """Auto-init feedback.db from bundled schema when table is missing."""
+    row = conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name='feedback'"
+    ).fetchone()
+    if row:
+        return
+    schema_path = REPO_ROOT / "data" / "schemas" / "feedback.schema.sql"
+    if not schema_path.exists():
+        raise RuntimeError(f"feedback schema missing at {schema_path}")
+    log.warning("feedback.db missing feedback table — initializing from %s", schema_path)
+    conn.executescript(schema_path.read_text(encoding="utf-8"))
+    conn.commit()
+
+
 def write_feedback_row(
     payload: dict,
     env,
@@ -557,6 +602,7 @@ def write_feedback_row(
         body_excerpt,                      # I2-Fix 2026-05-26: validator reads from here, not body_hash
     )
     with sqlite3.connect(FEEDBACK_DB) as conn:
+        _ensure_feedback_schema(conn)
         cur = conn.execute(
             "INSERT OR IGNORE INTO feedback "
             "(task_id, account_id, imap_uid, sender, subject, body_hash, "
@@ -680,7 +726,7 @@ def process_envelope(
     ts_fetched = _utc_now_iso()
     ts_fetched_ms = int(time.time() * 1000)
 
-    if args.dry_run:
+    if args.dry_run or not _kanban_enabled(args):
         log.info("[dry-run] would create kanban task title=%r idempotency-key=%s",
                  title, idempotency_key)
         task_id = "dryrun-task-id"
@@ -696,13 +742,13 @@ def process_envelope(
             return "block:kanban_create_failed"
         kanban_claim(task_id)  # cheap insurance per D-E5
 
-    # Plugin CLI
-    if args.dry_run:
+    # Plugin CLI (requires kanban task_id)
+    if args.dry_run or not _kanban_enabled(args):
         log.info("[dry-run] would call plugin CLI for task=%s", task_id)
         plugin_output = {
             "value": "unklar",
             "confidence": 0.0,
-            "reasoning": "dry-run, plugin not called",
+            "reasoning": "dry-run or no-kanban, plugin not called",
             "evidence": [],
         }
     else:
@@ -715,13 +761,21 @@ def process_envelope(
     ts_plugin = _utc_now_iso()
 
     # Heuristik (legacy F.6 — sets heuristic_suggested_action für silent-mode-compat)
-    heuristic = classify_immo(
-        sender=f"{env.from_name} <{env.from_addr}>".strip(),
-        subject=env.subject or "",
-        body=env.body_text or "",
-        plugin_value=plugin_output.get("value", "unklar"),
-        plugin_confidence=float(plugin_output.get("confidence", 0.0) or 0.0),
-    )
+    if has_category("immo"):
+        heuristic = classify_immo(
+            sender=f"{env.from_name} <{env.from_addr}>".strip(),
+            subject=env.subject or "",
+            body=env.body_text or "",
+            plugin_value=plugin_output.get("value", "unklar"),
+            plugin_confidence=float(plugin_output.get("confidence", 0.0) or 0.0),
+        )
+    else:
+        heuristic = HeuristicResult(
+            suggested_action="keep",
+            reason="immo category not in config — immo_heuristic skipped",
+            confidence="low",
+            matched_markers=[],
+        )
 
     # F.8 — 2-Achsen-Classification (Domain × Actionability)
     # 2026-05-28 Wunsch 3: heuristic.matched_markers (enthält plz_country falls
@@ -777,7 +831,7 @@ def process_envelope(
         "plugin_class_hint": classification_f8.plugin_class_hint,
     }
 
-    if args.dry_run:
+    if args.dry_run or not _kanban_enabled(args):
         log.info("[dry-run] would post JSON comment + complete task=%s outcome=%s",
                  task_id, payload["outcome"])
         log.info("[dry-run] payload preview: %s",
@@ -905,6 +959,8 @@ def main() -> int:
                     help="skip all external side-effects (kanban, plugin, telegram, db write)")
     ap.add_argument("--no-telegram", action="store_true", default=False,
                     help="real run but skip Telegram (decision defaults to keep)")
+    ap.add_argument("--no-kanban", action="store_true", default=False,
+                    help="skip Hermes kanban + plugin side-effects (heuristic-only pilot path)")
     ap.add_argument("--imap-fixture", type=Path, default=None,
                     help="path to a JSON file of MailEnvelope dicts (offline smoke)")
     ap.add_argument("--assignee", default="production_worker",
@@ -929,8 +985,8 @@ def main() -> int:
     )
 
     # Cleanup 2026-05-27: Board-Preflight nur wenn --board explizit gesetzt.
-    # Ohne --board läuft der Worker ohne Hermes-Kanban-Side-Effects.
-    if args.board and not _preflight_board_exists(args.board):
+    # Ohne --board / mit --no-kanban läuft der Worker ohne Hermes-Kanban-Side-Effects.
+    if args.board and _kanban_enabled(args) and not _preflight_board_exists(args.board):
         return 2
 
     failures = _preflight(args)

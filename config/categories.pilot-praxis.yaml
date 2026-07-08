@@ -1,0 +1,70 @@
+# Pilot preset — fiktive Therapiepraxis (DE). Use with:
+#   CATEGORIES_YAML=config/categories.pilot-praxis.yaml make demo-pilot
+schema_version: v1
+fallback_domain: sonstiges
+
+categories:
+  - key: therapieplatz-anfrage
+    label: Therapieplatz-Anfrage
+    description: "Neue Anfragen um einen Therapieplatz, Erstkontakt, Warteliste"
+    subject_keywords:
+      - therapieplatz
+      - therapie anfrage
+      - erstgespräch
+      - erstgespraech
+      - warteliste
+      - neupatient
+      - neupatientin
+      - psychotherapie
+      - therapieplatz gesucht
+    default_actionability: actionable
+
+  - key: bestehende-klienten
+    label: Bestehende Klienten
+    description: "Terminverschiebungen, Absagen, Nachrichten laufender Klienten"
+    subject_keywords:
+      - terminverschiebung
+      - termin absage
+      - absage termin
+      - session
+      - behandlungstermin
+      - nächster termin
+      - naechster termin
+    default_actionability: actionable
+
+  - key: organisatorisches-abrechnung
+    label: Organisatorisches & Abrechnung
+    description: "Krankenkassen, Rechnungen, Verwaltung, Büro"
+    sender_domains:
+      - sanitas.ch
+      - css.ch
+      - swica.ch
+      - helsana.ch
+      - kpt.ch
+      - visana.ch
+    subject_keywords:
+      - rechnung
+      - abrechnung
+      - krankenkasse
+      - versicherung
+      - mwst
+      - tarif
+      - kostengutsprache
+    default_actionability: actionable
+
+  - key: sonstiges
+    label: Sonstiges
+    description: "Spam, Newsletter, unklare Mails"
+    sender_prefixes:
+      - newsletter
+      - marketing
+      - noreply
+      - no-reply
+    subject_keywords:
+      - newsletter
+      - angebot
+      - rabatt
+      - unsubscribe
+      - gewinnspiel
+    default_actionability: archive-silent
+    is_fallback: true
