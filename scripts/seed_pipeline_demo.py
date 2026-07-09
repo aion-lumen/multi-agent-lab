@@ -43,6 +43,24 @@ _REPO_ROOT = Path(__file__).resolve().parent.parent
 _DEFAULT_FEEDBACK_DB = _REPO_ROOT / "state" / "feedback.db"
 _DEFAULT_FOLIO_DB = Path.home() / ".folio" / "folio.db"
 _DEFAULT_FIXTURE = _REPO_ROOT / "tests" / "fixtures" / "imap" / "demo_quickstart.json"
+_DEMO_LABELS_YAML = _REPO_ROOT / "tests" / "fixtures" / "imap" / "demo_labels.yaml"
+
+
+def _load_demo_labels() -> dict:
+    """Golden labels — single source is demo_labels.yaml (Afschin-reviewed SOLL, 2026-07-08).
+    Returns {uid: {domain, action, markers}}. `action` is the final demo state used for
+    seeding; the yaml's `classifier_action` is the eval-full measure (not needed here)."""
+    import yaml  # local import — only needed at seed time
+
+    raw = yaml.safe_load(_DEMO_LABELS_YAML.read_text(encoding="utf-8")) or {}
+    out: dict[int, dict] = {}
+    for uid, v in (raw.get("labels") or {}).items():
+        out[int(uid)] = {
+            "domain": str(v["domain"]),
+            "action": str(v["action"]),
+            "markers": list(v.get("markers") or []),
+        }
+    return out
 
 # Synthetic UUIDs — same string each run, used for idempotence
 DEMO_SILENT_UUID = "demo-silent-worker-20260610"
@@ -65,60 +83,8 @@ DEMO_BOARD = "silent-demo-2026-06-10"
 # bekommen 4/4-Konsens (heuristik + 3 LLMs) und werden via auto_uebernahme
 # auf 'uebernommen' promoviert.
 
-UID_CLASSIFICATION: dict[int, dict[str, str | list[str]]] = {
-    # immo — actionable (Substanz). plz_coords markers cross-DB feed council-
-    # object distance-pill via getDistanceKmForCouncilObject (haversine vs
-    # FOLIO_HOME_LAT/LNG). Lat/lng are approximate Algarve municipalities.
-    90001: {"domain": "immo", "action": "actionable", "markers": ["plz_coords:37.0194,-7.9322", "plz:8000", "plz_city:Faro"]},
-    90002: {"domain": "immo", "action": "actionable", "markers": ["plz_coords:37.1387,-8.0245", "plz:8100", "plz_city:Loulé"]},
-    90003: {"domain": "immo", "action": "actionable", "markers": ["plz_coords:37.1281,-7.6497", "plz:8800", "plz_city:Tavira"]},
-    90004: {"domain": "immo", "action": "actionable", "markers": ["plz_coords:37.1011,-8.6743", "plz:8600", "plz_city:Lagos"]},
-    # immo — übernommen candidates (high-substance)
-    90005: {"domain": "immo", "action": "uebernommen", "markers": ["plz_coords:37.0276,-7.8413", "plz:8700", "plz_city:Olhão"]},
-    90006: {"domain": "immo", "action": "uebernommen", "markers": ["plz_coords:37.0760,-8.0204", "plz:8135", "plz_city:Almancil"]},
-    90007: {"domain": "immo", "action": "uebernommen", "markers": ["plz_coords:37.0817,-8.1184", "plz:8125", "plz_city:Vilamoura"]},
-    # immo — newsletter/marketing/tipps → archive-silent (mit Markern)
-    90008: {"domain": "immo", "action": "archive-silent", "markers": ["out_of_corridor"]},
-    90009: {"domain": "immo", "action": "archive-silent", "markers": ["decay"]},
-    90010: {"domain": "immo", "action": "archive-silent", "markers": ["price_on_request"]},
-    90011: {"domain": "immo", "action": "archive-silent", "markers": ["decay"]},
-    90012: {"domain": "immo", "action": "archive-silent", "markers": ["projektiert"]},
-    # job — actionable
-    90013: {"domain": "job", "action": "actionable", "markers": []},
-    90014: {"domain": "job", "action": "actionable", "markers": []},
-    # job — archive-silent
-    90015: {"domain": "job", "action": "archive-silent", "markers": ["decay"]},
-    90016: {"domain": "job", "action": "archive-silent", "markers": ["decay"]},
-    90017: {"domain": "job", "action": "archive-silent", "markers": []},
-    90018: {"domain": "job", "action": "archive-silent", "markers": []},
-    # shopping — actionable (Paketzustellung)
-    90019: {"domain": "shopping", "action": "actionable", "markers": []},
-    90020: {"domain": "shopping", "action": "actionable", "markers": []},
-    90021: {"domain": "shopping", "action": "actionable", "markers": []},
-    90022: {"domain": "shopping", "action": "actionable", "markers": []},
-    90023: {"domain": "shopping", "action": "actionable", "markers": []},
-    90024: {"domain": "shopping", "action": "actionable", "markers": []},
-    # shopping — archive
-    90025: {"domain": "shopping", "action": "archive", "markers": []},
-    90026: {"domain": "shopping", "action": "archive", "markers": []},
-    90027: {"domain": "shopping", "action": "archive", "markers": []},
-    # finance — actionable
-    90028: {"domain": "finance", "action": "actionable", "markers": []},
-    90029: {"domain": "finance", "action": "actionable", "markers": []},
-    90030: {"domain": "finance", "action": "actionable", "markers": []},
-    90031: {"domain": "finance", "action": "actionable", "markers": []},
-    # finance — archive
-    90032: {"domain": "finance", "action": "archive", "markers": []},
-    90033: {"domain": "finance", "action": "archive", "markers": []},
-    # werbung — alle archive-silent
-    90034: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90035: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90036: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90037: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90038: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90039: {"domain": "werbung", "action": "archive-silent", "markers": []},
-    90040: {"domain": "werbung", "action": "archive-silent", "markers": []},
-}
+# Golden labels come from demo_labels.yaml (single source, Afschin-reviewed 2026-07-08).
+UID_CLASSIFICATION = _load_demo_labels()
 
 # Die 5 Mails, die in der jüngsten Worker-Tranche verarbeitet wurden (für die
 # Live-Detail-Demo und die validated-Logs). Mix aus Aktionsstufen.

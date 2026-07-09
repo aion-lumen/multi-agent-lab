@@ -1,0 +1,219 @@
+# demo_labels.yaml — Golden Labels für den Demo-Mail-Korpus (40 Mails, uid 90001-90040).
+#
+# PROVENANCE (Aufgabe 2, geklärt): Afschin hat die 40 Labels am 2026-07-08 reviewt und als
+# SOLL bestätigt — DAS Review ist die Provenance (nicht der alte Seed-Kommentar). Die Werte
+# wurden aus dem UID_CLASSIFICATION-Dict in seed_pipeline_demo.py extrahiert, sind aber
+# hand-designtes Soll (kein Modell-Output, kein Produktions-Ist) => kein zirkulärer Eval.
+# Diese Datei ist ab jetzt die single source; der Seed liest daraus (nicht mehr aus dem Dict).
+#
+# HINWEIS 'uebernommen' (3 Mails, 90005-90007): Das ist ein Post-Konsens-Zustand
+# (4/4-Voll-Konsens → auto_uebernahme), den der ROHE Klassifikator
+# (classify_domain_actionability) NIE ausgibt — er liefert dort 'actionable'.
+# Feld `classifier_action` gibt daher den Soll-Wert für den eval-full-Vergleich an
+# (uebernommen -> actionable); `action` bleibt der finale Demo-State (Seed nutzt ihn).
+#
+# ACTUAL DISTRIBUTION (Summe 40): immo 12, job 6, shopping 9, finance 6, werbung 7.
+# (Der Header-Kommentar im Seed nennt shopping 8 / werbung 8 — leichte Drift, Soll = dieses File.)
+schema_version: v1
+
+labels:
+  90001:
+    domain: immo
+    action: actionable
+    classifier_action: actionable
+    markers: ['plz_coords:37.0194,-7.9322', 'plz:8000', 'plz_city:Faro']
+  90002:
+    domain: immo
+    action: actionable
+    classifier_action: actionable
+    markers: ['plz_coords:37.1387,-8.0245', 'plz:8100', 'plz_city:Loulé']
+  90003:
+    domain: immo
+    action: actionable
+    classifier_action: actionable
+    markers: ['plz_coords:37.1281,-7.6497', 'plz:8800', 'plz_city:Tavira']
+  90004:
+    domain: immo
+    action: actionable
+    classifier_action: actionable
+    markers: ['plz_coords:37.1011,-8.6743', 'plz:8600', 'plz_city:Lagos']
+  90005:
+    domain: immo
+    action: uebernommen
+    classifier_action: actionable
+    markers: ['plz_coords:37.0276,-7.8413', 'plz:8700', 'plz_city:Olhão']
+  90006:
+    domain: immo
+    action: uebernommen
+    classifier_action: actionable
+    markers: ['plz_coords:37.0760,-8.0204', 'plz:8135', 'plz_city:Almancil']
+  90007:
+    domain: immo
+    action: uebernommen
+    classifier_action: actionable
+    markers: ['plz_coords:37.0817,-8.1184', 'plz:8125', 'plz_city:Vilamoura']
+  90008:
+    domain: immo
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['out_of_corridor']
+  90009:
+    domain: immo
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['decay']
+  90010:
+    domain: immo
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['price_on_request']
+  90011:
+    domain: immo
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['decay']
+  90012:
+    domain: immo
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['projektiert']
+  90013:
+    domain: job
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90014:
+    domain: job
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90015:
+    domain: job
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['decay']
+  90016:
+    domain: job
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: ['decay']
+  90017:
+    domain: job
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90018:
+    domain: job
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90019:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90020:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90021:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90022:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90023:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90024:
+    domain: shopping
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90025:
+    domain: shopping
+    action: archive
+    classifier_action: archive
+    markers: []
+  90026:
+    domain: shopping
+    action: archive
+    classifier_action: archive
+    markers: []
+  90027:
+    domain: shopping
+    action: archive
+    classifier_action: archive
+    markers: []
+  90028:
+    domain: finance
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90029:
+    domain: finance
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90030:
+    domain: finance
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90031:
+    domain: finance
+    action: actionable
+    classifier_action: actionable
+    markers: []
+  90032:
+    domain: finance
+    action: archive
+    classifier_action: archive
+    markers: []
+  90033:
+    domain: finance
+    action: archive
+    classifier_action: archive
+    markers: []
+  90034:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90035:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90036:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90037:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90038:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90039:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
+  90040:
+    domain: werbung
+    action: archive-silent
+    classifier_action: archive-silent
+    markers: []
