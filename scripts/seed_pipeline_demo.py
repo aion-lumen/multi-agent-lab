@@ -71,13 +71,12 @@ DEMO_BOARD = "silent-demo-2026-06-10"
 
 # --- Heuristic classification (matches LENS_PROMPT axes) ------------------
 
-# Per-UID-Klassifikation — pre-computed um den Worker zu replizieren ohne
-# echte Heuristik laufen zu lassen. Outcome-Mix laut Direktive:
-#   immo (12): 4 actionable + 5 archive-silent + 3 übernommen-Kandidaten
-#   job (6):   2 actionable + 4 archive-silent
-#   shopping (8): 6 actionable + 2 archive
-#   finance (6): 4 actionable + 2 archive
-#   werbung (8): 8 archive-silent
+# Per-UID-Klassifikation — die 40 Golden Labels (Soll). Verteilung (Summe 40):
+#   immo (12):    4 actionable + 5 archive-silent + 3 übernommen-Kandidaten
+#   job (6):      2 actionable + 4 archive-silent
+#   shopping (9): 6 actionable + 3 archive
+#   finance (6):  4 actionable + 2 archive
+#   werbung (7):  7 archive-silent
 #
 # Die "übernommen"-Kandidaten sind die 3 hochwertigsten immo-Mails — die
 # bekommen 4/4-Konsens (heuristik + 3 LLMs) und werden via auto_uebernahme
