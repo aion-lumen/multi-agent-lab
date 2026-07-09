@@ -22,7 +22,7 @@ COUNCIL_DB := $(COUNCIL_DB_PATH)
 FOLIO_DB := $(FOLIO_DB_PATH)
 FEEDBACK_DB := $(FEEDBACK_DB_PATH)
 
-.PHONY: help demo demo-pilot demo-job-leads demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas preflight
+.PHONY: help demo demo-pilot demo-job-leads eval-full demo-force demo-clean test init-demo-dbs inventory refresh-demo-schemas preflight
 
 help:
 	@echo "Targets (all demo* operate on ISOLATED *-demo.db files, real DBs untouched):"
@@ -140,6 +140,17 @@ demo-job-leads:
 	@echo ""
 	@echo "─── Emitted lead .md files → $(DEMO_LEAD_INBOX): ────────────"
 	@ls -1 "$(DEMO_LEAD_INBOX)" || true
+
+# Automated 3-model E2E eval (40 demo mails × validator voices vs golden labels).
+# Writes evals/full/<datum>-report.{md,json} (Cowork interface, not stdout). Needs LM Studio.
+# EVAL_MODE=swap (default, unattended: model_swap.swap_to loads each model) or
+# EVAL_MODE=jit (single pass, LM Studio JIT-loads each model on request — faster if enabled).
+# EVAL_LIMIT=N for a slim one-model verify (e.g. EVAL_MODE=jit EVAL_LIMIT=8).
+EVAL_MODE ?= swap
+eval-full:
+	@echo "─── Full-Eval (3 Modelle × 40 Demo-Mails → evals/full/) · mode=$(EVAL_MODE) ──"
+	$(PYTHON) scripts/eval_full.py --mode $(EVAL_MODE) $(if $(EVAL_LIMIT),--limit $(EVAL_LIMIT),) $(if $(EVAL_MODELS),--models $(EVAL_MODELS),)
+	@echo "─── Report: evals/full/<datum>-report.{md,json} (Exit-Code = Erfolg) ────────"
 
 demo-force: check-demo-dbs
 	@echo "─── Re-seeding council-demo.db (force) ──────────────────────"
