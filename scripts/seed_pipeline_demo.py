@@ -232,9 +232,12 @@ def insert_feedback(feedback: sqlite3.Connection, fixture: list[dict]) -> int:
         # `effective_actionability` is computed at read-time by the loader
         # (time-decay + override + correction merge) but we provide the seed.
         action_for_actionability = "actionable" if info["action"] == "uebernommen" else info["action"]
+        # Demo-Guard 1.4: structurally masked account labels (never real identifiers).
+        # Two synthetic demo accounts, deterministic split across the 40 mails.
+        account_id = "konto-a" if uid % 2 == 1 else "konto-b"
         feedback.execute(
             """INSERT INTO feedback
-                   (task_id, imap_uid, sender, subject, body_hash,
+                   (task_id, account_id, imap_uid, sender, subject, body_hash,
                     plugin_value, plugin_confidence, plugin_evidence,
                     heuristic_suggested_action, heuristic_reason,
                     heuristic_confidence, heuristic_markers,
@@ -242,9 +245,10 @@ def insert_feedback(feedback: sqlite3.Connection, fixture: list[dict]) -> int:
                     suggested_action_confirmed, response_time_ms,
                     timeout_occurred, created_at,
                     domain, actionability, effective_actionability, mail_date)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 f"demo-task-{uid}",
+                account_id,
                 uid,
                 mail["from_addr"],
                 mail["subject"][:200],
