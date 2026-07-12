@@ -66,5 +66,8 @@ folio-mail/
 state/*
 !state/.gitkeep
 
+# === Migration snapshots (contain mail subjects/message-ids — local only) ===
+data/yahoo-migration-snapshot-*.json
+
 # Vitest local output
 test-results/
