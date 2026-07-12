@@ -60,6 +60,8 @@ import requests
 _THIS_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(_THIS_DIR))
 
+from account_creds import resolve_password_or_none  # noqa: E402
+
 from paths import (  # noqa: E402
     ACCOUNTS_TOML,
     FEEDBACK_DB,
@@ -302,17 +304,12 @@ VALID_ACCOUNTS = ("yahoo", "gmail", "mirhamed")
 
 
 def _resolve_password(acct: dict) -> str | None:
-    """Resolve IMAP password from password_env, password_cmd, or None (→ bw_item)."""
-    env_key = acct.get("password_env")
-    if env_key:
-        val = os.environ.get(str(env_key))
-        if not val:
-            raise RuntimeError(f"password_env {env_key!r} is unset")
-        return val
-    cmd = acct.get("password_cmd")
-    if cmd:
-        return subprocess.check_output(cmd, shell=True, text=True, timeout=30).strip()
-    return None
+    """Resolve IMAP password from password_cmd/password_env, or None (→ bw_item).
+
+    One truth: delegates to account_creds (shared with imap_cleanup). None keeps
+    the historic behaviour — IMAPSession then resolves bw_item lazily.
+    """
+    return resolve_password_or_none(acct)
 
 
 def _load_account(account_id: str) -> dict:
@@ -602,6 +599,12 @@ def write_feedback_row(
         da.get("actionability"),           # F.8 — frozen-at-insert
         None,                              # effective_actionability — Folio berechnet dynamisch
         body_excerpt,                      # I2-Fix 2026-05-26: validator reads from here, not body_hash
+        # P0.3–P0.5 (2026-07-12) auto-vs-personal move signals from the envelope.
+        getattr(env, "to_addr", None) or None,
+        getattr(env, "list_id", None) or None,
+        getattr(env, "auto_submitted", None) or None,
+        getattr(env, "precedence", None) or None,
+        getattr(env, "list_unsubscribe", None) or None,
     )
     with sqlite3.connect(FEEDBACK_DB) as conn:
         _ensure_feedback_schema(conn)
@@ -613,8 +616,8 @@ def write_feedback_row(
             "heuristic_markers, user_classification, user_final_action, "
             "suggested_action_confirmed, response_time_ms, timeout_occurred, "
             "created_at, mail_date, domain, actionability, effective_actionability, "
-            "body_excerpt) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "body_excerpt, to_addr, list_id, auto_submitted, precedence, list_unsubscribe) "
+            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
             row,
         )
         conn.commit()

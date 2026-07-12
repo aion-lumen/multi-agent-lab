@@ -18,6 +18,11 @@ def dbs(tmp_path: Path, monkeypatch):
     folio = tmp_path / "folio.db"
     monkeypatch.setenv("FEEDBACK_DB_PATH", str(feedback))
     monkeypatch.setenv("FOLIO_DB_PATH", str(folio))
+    # uebernommen-Promotion ist eine Council-Funktion — dieser Test prüft sie,
+    # also läuft er mit registriertem Council (P0 2026-07-12: Default sonst AUS).
+    active_vault = tmp_path / "active-vault.json"
+    active_vault.write_text(json.dumps({"path": str(tmp_path / "vault"), "council": True}))
+    monkeypatch.setenv("FOLIO_ACTIVE_VAULT_JSON", str(active_vault))
 
     with sqlite3.connect(feedback) as conn:
         conn.execute(

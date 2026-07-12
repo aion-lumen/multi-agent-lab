@@ -40,10 +40,8 @@ import argparse
 import imaplib
 import json
 import logging
-import os
 import sqlite3
 import ssl
-import subprocess
 import sys
 import tomllib
 import uuid
@@ -52,6 +50,9 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from auto_uebernahme import _is_eligible_for_uebernommen, _parse_markers, _validator_opinions_for  # noqa: E402
+from account_creds import resolve_password  # noqa: E402
+from auto_personal import MailSignals, PersonalContext, is_auto_generated  # noqa: E402
+from council_state import council_registered  # noqa: E402
 from domain_actionability import TIER1_BLOCKER_MARKERS  # noqa: E402
 from imap_actions import (  # noqa: E402
     ensure_folder, folder_exists, mark_as_read, merge_folder,
@@ -86,20 +87,15 @@ def _load_yahoo_account() -> dict:
     return yahoo
 
 
-def _get_password(bw_item: str) -> str:
-    """Bitwarden-Lookup via life-mail-passwd shell-helper."""
-    result = subprocess.run(
-        ["life-mail-passwd", bw_item],
-        capture_output=True, text=True, check=True,
-    )
-    return result.stdout.strip()
-
-
 def _imap_connect(account: dict) -> imaplib.IMAP4_SSL:
-    """Verbindet sich, loggt ein, SELECTet INBOX (für UID-Operationen)."""
+    """Verbindet sich, loggt ein, SELECTet INBOX (für UID-Operationen).
+
+    Passwort über account_creds.resolve_password — Präzedenz password_cmd >
+    password_env > bw_item(→bw). Für Yahoo greift password_cmd (0600-Datei) →
+    bw-/timeout-frei, keine BW_SESSION nötig."""
     ctx = ssl.create_default_context()
     conn = imaplib.IMAP4_SSL(account["host"], account["port"], ssl_context=ctx)
-    conn.login(account["login"], _get_password(account["bw_item"]))
+    conn.login(account["login"], resolve_password(account))
     typ, _ = conn.select("INBOX")
     if typ != "OK":
         raise RuntimeError("Cannot SELECT INBOX")
@@ -107,6 +103,21 @@ def _imap_connect(account: dict) -> imaplib.IMAP4_SSL:
 
 
 # ---- Klassifikations-Pfade ---------------------------------------------------
+
+
+def _is_eligible_generic(
+    target_domain: str, heur_domain: str, heur_action: str,
+    opinions: list[tuple[str, str]],
+) -> bool:
+    """Council-aus (P0 2026-07-12): eine Domäne wird normal behandelt —
+    Heuristik + 3+ Voll-Konsens auf (domain, actionable), OHNE immo-Block-
+    Marker-Gate und OHNE uebernommen-Promotion. Wird für immo verwendet, wenn
+    Council nicht registriert ist (immo = normale Domäne wie job)."""
+    if heur_domain != target_domain or heur_action != "actionable":
+        return False
+    if len(opinions) < 3:
+        return False
+    return all(d == target_domain and a == "actionable" for (d, a) in opinions)
 
 
 def _is_eligible_for_job(
@@ -263,9 +274,19 @@ def _classify_mails(fb_conn: sqlite3.Connection, folio_conn: sqlite3.Connection)
         # und nicht bereits promoted)
         opinions = _validator_opinions_for(folio_conn, fid)
 
-        if _is_eligible_for_uebernommen(
-            r["domain"], r["actionability"], opinions, markers,
-        ):
+        # immo-Konsens → _AionLumen/Immo. Council registriert: uebernommen-
+        # Promotions-Eligibility (mit Block-Marker-Gate). Council aus (P0
+        # 2026-07-12): immo ist eine normale Domäne → generischer Konsens
+        # wie job, ohne Promotion, ohne immo-Block.
+        if council_registered():
+            immo_ok = _is_eligible_for_uebernommen(
+                r["domain"], r["actionability"], opinions, markers,
+            )
+        else:
+            immo_ok = _is_eligible_generic(
+                "immo", r["domain"], r["actionability"], opinions,
+            )
+        if immo_ok:
             buckets["consensus_immo"].append({
                 "feedback_id": fid, "imap_uid": uid, "markers": markers,
             })
@@ -364,11 +385,214 @@ def _handle_paketzustellung_migration(conn, target_shopping_folder: str) -> None
     log.info("paketzustellung migration: merged %d mails", moved)
 
 
+# ---- P0.3–P0.5 generic move (Council-aus) -----------------------------------
+
+_TRASH = "__trash__"
+_INBOX = "__inbox__"
+
+
+def _personal_context() -> PersonalContext:
+    """User identity for the personal-address check. user_addresses from the
+    Yahoo login (accounts.toml, no Bitwarden needed); personal names from
+    user_context.yaml if present, else sensible defaults."""
+    addrs: list[str] = []
+    try:
+        addrs.append(_load_yahoo_account().get("login", ""))
+    except Exception:
+        pass
+    names: list[str] = []
+    try:
+        import yaml  # lazy
+        uc_path = CONFIG_DIR / "user_context.yaml" if "CONFIG_DIR" in globals() else None
+        if uc_path and uc_path.exists():
+            uc = yaml.safe_load(uc_path.read_text()) or {}
+            names = list(uc.get("personal_addressing_names") or [])
+    except Exception:
+        names = []
+    if not names:
+        names = ["Afschin", "Afshin"]
+    return PersonalContext(
+        user_addresses=tuple(a for a in addrs if a),
+        personal_addressing_names=tuple(names),
+    )
+
+
+def _classify_mails_generic(
+    fb_conn: sqlite3.Connection,
+    folio_conn: sqlite3.Connection,
+    domain_folder_map: dict,
+) -> dict:
+    """Council-aus routing (P0 2026-07-12): domain × auto/personal → target.
+
+    Returns buckets keyed by target folder name, plus ``__trash__`` and
+    ``__inbox__`` (no-move). auto-generated + domain-has-folder → folder (moved
+    UNREAD); personal / kontakt / unsorted / no-folder → __inbox__.
+    """
+    fb_conn.row_factory = sqlite3.Row
+    rows = fb_conn.execute(
+        """SELECT id, imap_uid, sender, subject, body_excerpt, domain, actionability,
+                  heuristic_markers, to_addr, list_id, auto_submitted, precedence,
+                  list_unsubscribe
+           FROM feedback
+           WHERE imap_uid IS NOT NULL AND account_id = ?""",
+        (YAHOO_ACCOUNT_ID,),
+    ).fetchall()
+
+    # user-dismissed (correction/override archive-silent) → Trash (user action wins)
+    dismissed = _dismissed_feedback_ids(folio_conn)
+
+    ctx = _personal_context()
+    buckets: dict[str, list] = {_TRASH: [], _INBOX: []}
+    for fname in domain_folder_map.values():
+        buckets.setdefault(fname, [])
+
+    for r in rows:
+        fid = r["id"]
+        entry = {
+            "feedback_id": fid, "imap_uid": r["imap_uid"],
+            "sender": r["sender"] or "", "subject": r["subject"] or "",
+            "markers": _parse_markers(r["heuristic_markers"]),
+        }
+        if fid in dismissed:
+            buckets[_TRASH].append(entry)
+            continue
+        domain = r["domain"] or "unsorted"
+        if domain == "werbung":
+            buckets[_TRASH].append(entry)
+            continue
+        folder = domain_folder_map.get(domain)
+        if not folder:
+            buckets[_INBOX].append(entry)   # kontakt / unsorted / no-folder domain
+            continue
+        sig = MailSignals(
+            from_addr=r["sender"] or "", to_addr=r["to_addr"] or "",
+            subject=r["subject"] or "", body_excerpt=r["body_excerpt"] or "",
+            list_id=r["list_id"] or "", auto_submitted=r["auto_submitted"] or "",
+            precedence=r["precedence"] or "", list_unsubscribe=r["list_unsubscribe"] or "",
+        )
+        if is_auto_generated(sig, ctx):
+            buckets[folder].append(entry)   # auto → domain folder (moved unread)
+        else:
+            buckets[_INBOX].append(entry)   # personal → stays in inbox
+    return buckets
+
+
+def _dismissed_feedback_ids(folio_conn: sqlite3.Connection) -> set[int]:
+    """feedback_ids the user silenced via correction or override (archive-silent)."""
+    out: set[int] = set()
+    for (fid, act) in folio_conn.execute(
+        "SELECT feedback_id, corrected_actionability FROM corrections "
+        "WHERE id IN (SELECT MAX(id) FROM corrections GROUP BY feedback_id)"
+    ).fetchall():
+        if act == "archive-silent":
+            out.add(fid)
+    for (fid, act) in folio_conn.execute(
+        "SELECT feedback_id, overridden_actionability FROM mail_actionability_override "
+        "WHERE id IN (SELECT MAX(id) FROM mail_actionability_override GROUP BY feedback_id)"
+    ).fetchall():
+        if act == "archive-silent":
+            out.add(fid)
+    return out
+
+
+def _run_generic(config: dict, dry_run: bool, max_override: int | None) -> dict:
+    """Council-aus move: auto→root domain folder (unread), personal→INBOX."""
+    max_per_run = max_override or int(config.get("max_per_run", 50))
+    domain_folder_map = config.get("domain_folder_map", {}) or {}
+
+    fb_conn = sqlite3.connect(f"file:{FEEDBACK_DB}?mode=ro", uri=True)
+    folio_conn = sqlite3.connect(str(FOLIO_DB))
+    buckets = _classify_mails_generic(fb_conn, folio_conn, domain_folder_map)
+    fb_conn.close()
+
+    counts = {k: len(v) for k, v in buckets.items()}
+    log.info("classified (generic/council-off): %s", counts)
+
+    if dry_run:
+        folio_conn.close()
+        log.info("--- DRY-RUN: keine IMAP-aktionen ---")
+        return {"enabled": True, "dry_run": True, "council": False, **counts}
+
+    yahoo = _load_yahoo_account()
+    conn = _imap_connect(yahoo)
+    run_uuid = f"imap-cleanup-{uuid.uuid4().hex[:8]}"
+    moved_total = 0
+    moved_by_folder: dict[str, int] = {}
+
+    def _within_limit(want: int) -> bool:
+        nonlocal moved_total
+        if moved_total + want > max_per_run:
+            _write_warn_log(folio_conn, run_uuid,
+                            f"imap_cleanup(generic) aborted at {moved_total}+{want} > {max_per_run}")
+            log.warning("sanity trip %d+%d > %d", moved_total, want, max_per_run)
+            return False
+        return True
+
+    try:
+        # target domain folders (root level) idempotent anlegen
+        for fname in sorted({f for f in buckets if f not in (_TRASH, _INBOX)}):
+            if buckets[fname]:
+                ensure_folder(conn, fname)
+        conn.select("INBOX")
+
+        for fname, entries in buckets.items():
+            if fname in (_TRASH, _INBOX) or not entries:
+                continue
+            uids = [e["imap_uid"] for e in entries]
+            if not _within_limit(len(uids)):
+                continue
+            for e in entries:
+                _write_correction_snapshot(
+                    folio_conn, feedback_id=e["feedback_id"], imap_uid=e["imap_uid"],
+                    markers=e["markers"], correction_marker_csv=None,
+                    source="imap_cleanup_generic",
+                )
+            # auto-generated → domain folder, LEFT UNREAD (visible + reportable;
+            # a misclassified personal mail is never silently lost). No mark_as_read.
+            move_to_folder(conn, uids, fname)
+            moved_total += len(uids)
+            moved_by_folder[fname] = len(uids)
+
+        # user-dismissed / werbung → Trash
+        trash_uids = [e["imap_uid"] for e in buckets[_TRASH]]
+        if trash_uids and _within_limit(len(trash_uids)):
+            move_to_trash(conn, trash_uids)
+            moved_total += len(trash_uids)
+            moved_by_folder[_TRASH] = len(trash_uids)
+
+        # Report line (misclassification safety): surfaced in Folio's run log so
+        # every silent move is visible — a wrongly-"auto" personal mail is in the
+        # daily report + sits UNREAD in its domain folder, never silently lost.
+        _write_warn_log(
+            folio_conn, run_uuid,
+            f"generic move: {moved_by_folder or '{}'} kept_in_inbox={len(buckets[_INBOX])} "
+            f"(auto→domain-folder UNREAD; personal/kontakt/unsorted→inbox)",
+        )
+    finally:
+        try:
+            conn.logout()
+        except Exception:
+            pass
+        folio_conn.close()
+
+    log.info("done (generic). moved_total=%d by=%s", moved_total, moved_by_folder)
+    return {
+        "enabled": True, "dry_run": False, "council": False,
+        "moved_total": moved_total, "moved_by_folder": moved_by_folder,
+        "kept_in_inbox": len(buckets[_INBOX]),
+    }
+
+
 def run(dry_run: bool = False, max_override: int | None = None) -> dict:
     config = _load_config()
     if not config.get("enabled", False) and not dry_run:
         log.warning("imap_cleanup disabled in regelwerk.yaml — exit")
         return {"enabled": False}
+
+    # P0 immo/council-Move-Entkopplung: Council-aus → generische Domain-Struktur
+    # (root-Ordner, auto-vs-persönlich). Council-an → Legacy _AionLumen-Pfad unten.
+    if not council_registered():
+        return _run_generic(config, dry_run, max_override)
 
     max_per_run = max_override or int(config.get("max_per_run", 50))
     folders = config.get("target_folders", {})

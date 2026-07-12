@@ -23,6 +23,14 @@ CREATE TABLE feedback (
     domain TEXT,
     actionability TEXT,
     effective_actionability TEXT, body_excerpt TEXT,
+    -- P0.3–P0.5 (2026-07-12) auto-vs-personal move signals (from MailEnvelope /
+    -- life-mail fetcher). Nullable: rows written before the migration have NULL
+    -- and the classifier falls back to sender-prefix + salutation.
+    to_addr TEXT,
+    list_id TEXT,
+    auto_submitted TEXT,
+    precedence TEXT,
+    list_unsubscribe TEXT,
     UNIQUE(account_id, imap_uid)
 );
 CREATE INDEX idx_feedback_account ON feedback(account_id);

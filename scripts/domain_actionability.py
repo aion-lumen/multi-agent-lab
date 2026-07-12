@@ -35,6 +35,7 @@ from typing import Literal
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from sender_heuristic import extract_domain, extract_email_address  # noqa: E402
 from categories_loader import load_categories, has_category  # noqa: E402
+from council_state import council_registered  # noqa: E402
 
 log = logging.getLogger("domain_actionability")
 
@@ -511,7 +512,15 @@ def _apply_tier1_blocker_filter(
     kontakt/werbung/unsorted-Mails (Mail 756 prototypisch) durchrutschen
     lassen. Marker-Validation (immo_heuristic.py) sorgt jetzt dafuer,
     dass tier1:* nur bei substanziellem Match gesetzt wird; wenn er
-    gesetzt ist, gilt er ueber alle Domains."""
+    gesetzt ist, gilt er ueber alle Domains.
+
+    P0 immo/council-Move-Entkopplung (2026-07-12): der tier1-Block ist reiner
+    immo/Council-Intent (Foreclosure/Projekt/Preis + Makler-Werbung). Bei
+    deaktiviertem Council wird er komplett übersprungen — dann kein blocked_by
+    mehr (auch keine Nicht-Immo-Fehlblocks à la Mail 756). Generische Werbung
+    läuft unverändert über den domain=='werbung'-Pfad, nicht hier."""
+    if not council_registered():
+        return actionability
     if not heuristic_markers:
         return actionability
     for blocker in TIER1_BLOCKER_MARKERS:

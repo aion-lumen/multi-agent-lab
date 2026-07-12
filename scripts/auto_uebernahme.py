@@ -24,6 +24,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from domain_actionability import TIER1_BLOCKER_MARKERS  # noqa: E402
+from council_state import council_registered  # noqa: E402
 
 log = logging.getLogger("auto_uebernahme")
 
@@ -103,6 +104,12 @@ def promote_eligible(
 
     Returnt dict {checked, eligible, promoted}.
     """
+    # P0 immo/council-Move-Entkopplung (2026-07-12): uebernommen-Promotion ist
+    # reine Council-Funktion. Bei deaktiviertem Council No-op — immo bleibt eine
+    # normale Domäne (kein Council-Pool). Wieder-Einschalten via active-vault.json.
+    if not council_registered():
+        log.info("council not registered — auto_uebernahme skipped (immo = normale Domäne)")
+        return {"checked": 0, "eligible": 0, "promoted": 0}
     if not FEEDBACK_DB.exists():
         log.error("feedback.db nicht gefunden: %s", FEEDBACK_DB)
         return {"checked": 0, "eligible": 0, "promoted": 0}
