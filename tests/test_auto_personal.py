@@ -94,3 +94,40 @@ def test_salutation_but_not_to_user_needs_other_signal():
     sig = MailSignals(from_addr="x@firma.de", to_addr="andere@example.com",
                       body_excerpt="Hallo Afschin")
     assert _auto(sig) is False
+
+
+# ---- P0.4c: transactional auto-senders WITHOUT List-Unsubscribe --------------
+@pytest.mark.parametrize("addr", [
+    "versandbestaetigung@amazon.de", "bestellbestaetigung@amazon.de",
+    "order-update@amazon.de", "shipment-tracking@amazon.de",
+    "myscout@immobilienscout24.de", "jobs-listings@linkedin.com",
+])
+def test_transactional_prefix_is_auto(addr):
+    # no List-Unsubscribe header, but a transactional sender local-part → auto
+    assert _auto(MailSignals(from_addr=addr, subject="Bestellt / Angebot")) is True
+
+
+@pytest.mark.parametrize("addr", [
+    "jobalerts-noreply@linkedin.com", "jobs-noreply@linkedin.com",
+    "messages-noreply@example.com",
+])
+def test_noreply_substring_is_auto(addr):
+    # "noreply" mid-local-part (not a prefix) → still auto
+    assert _auto(MailSignals(from_addr=addr, subject="x")) is True
+
+
+@pytest.mark.parametrize("addr", [
+    "samuel.grauer@remax.de", "joerg.thalmann@remax.de",
+    "adriana.russotto@century21.de", "gabriele.hofmann@century21.de",
+])
+def test_agent_replies_stay_personal(addr):
+    # HARD criterion (Afschin): real 1:1 agent replies (personal-name local-part,
+    # no auto header, not addressed-with-salutation) must NOT be auto → keep INBOX.
+    sig = MailSignals(from_addr=addr, to_addr="mirhamed@yahoo.de",
+                      subject="Re: Ihre Anfrage - Exposé")
+    assert _auto(sig) is False
+
+
+def test_service_prefix_NOT_auto():
+    # deliberately excluded: 'service' could be a 1:1 support reply → conservative
+    assert _auto(MailSignals(from_addr="service@paypal.de", subject="x")) is False

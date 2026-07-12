@@ -29,15 +29,22 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
-# Sender local-part prefixes that mark an automated/bulk/service sender. Mirrors
-# the BULK_SENDER_PREFIXES / WERBUNG_SENDER_PREFIXES already used in
-# domain_actionability.py — kept here so this module stays self-contained.
+# Sender local-part prefixes that mark an automated/bulk/service sender (exact or
+# startswith). Mirrors BULK_SENDER_PREFIXES in domain_actionability.py.
 _AUTO_SENDER_PREFIXES = (
-    "noreply", "no-reply", "donotreply", "do-not-reply", "no_reply",
     "notifications", "notification", "news", "newsletter", "newsletters",
     "marketing", "deals", "promo", "promotions", "updates", "mailer",
     "postmaster", "bounce", "bounces",
+    # P0.4c (2026-07-12): transactional auto-senders that carry NO List-Unsubscribe
+    # (order/shipping confirmations, listing scouts). Narrow, transaction-only
+    # patterns — deliberately NOT "service"/"info" (could hit a 1:1 support reply).
+    "versandbestaetigung", "bestellbestaetigung", "order-update",
+    "shipment-tracking", "myscout", "jobs-listings",
 )
+
+# Substrings that mark an automated sender even mid-local-part (e.g.
+# jobalerts-noreply, messages-noreply). Safe: no personal local-part contains these.
+_AUTO_SENDER_SUBSTRINGS = ("noreply", "no-reply", "donotreply", "do-not-reply", "no_reply")
 
 _SALUTATION_BASE = (
     r"sehr\s+geehrte[r]?\s+(?:herr|frau)",
@@ -80,7 +87,8 @@ def _has_auto_header(sig: MailSignals) -> list[str]:
     if sig.list_id.strip():
         reasons.append("list-id")
     lp = _local_part(sig.from_addr)
-    if lp and any(lp == p or lp.startswith(p) for p in _AUTO_SENDER_PREFIXES):
+    if lp and (any(lp == p or lp.startswith(p) for p in _AUTO_SENDER_PREFIXES)
+               or any(s in lp for s in _AUTO_SENDER_SUBSTRINGS)):
         reasons.append(f"sender-prefix:{lp}")
     return reasons
 
