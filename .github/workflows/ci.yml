@@ -20,4 +20,4 @@ jobs:
           cp config/immo_whitelist.example.yaml config/immo_whitelist.yaml
           cp config/regelwerk.example.yaml config/regelwerk.yaml
       - run: pytest tests/ -q --ignore=tests/test_production_worker_smoke.py
-      - run: pip install ruff && ruff check scripts/paths.py scripts/domain_actionability.py scripts/auto_uebernahme.py
+      - run: pip install ruff==0.15.17 && ruff check scripts/paths.py scripts/domain_actionability.py scripts/auto_uebernahme.py
