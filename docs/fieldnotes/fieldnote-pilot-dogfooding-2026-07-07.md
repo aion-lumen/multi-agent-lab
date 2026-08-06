@@ -27,7 +27,7 @@
 
 ## Antwort-Entwurf (CV-Session)
 
-> Die Pipeline ist jetzt pilot-fähig im bestehenden Repo: Kategorien per Config (Praxis-Preset mit 4 Domains), Install-Pfad unter 30 Min dokumentiert, Demo mit synthetischen Praxis-Mails. Ich dogfoode über `afschin@mirhamed.ch` — Triage erscheint im Folio-Heute-Hub.
+> Die Pipeline ist jetzt pilot-fähig im bestehenden Repo: Kategorien per Config (Praxis-Preset mit 4 Domains), Install-Pfad unter 30 Min dokumentiert, Demo mit synthetischen Praxis-Mails. Ich dogfoode über `<deine-mailadresse>` — Triage erscheint im Folio-Heute-Hub.
 >
 > August als Starttermin: **ja, unter der Bedingung** eines kurzen gemeinsamen Setup-Termins (LM Studio + Config). Vollständige Selbstständigkeit ohne Begleitung würde ich eher ab September empfehlen, sobald der Zweitrechner-Install bei mir durch ist.
 
