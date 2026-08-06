@@ -19,7 +19,7 @@
 | Config-driven Domains | ✅ In-place, getestet |
 | Offline Demo (Praxis) | ✅ `make demo-pilot` |
 | Install-Doku | ✅ PILOT.md < 30 Min Ziel |
-| Zweitrechner live verifiziert | ❌ Noch Afschin (DoD) |
+| Zweitrechner live verifiziert | ❌ Noch der Steward (DoD) |
 | Tägliches Dogfooding `mirhamed` | 🟡 Technisch ready, Nutzung offen |
 | Validator/LLM auf Fremdrechner | 🟡 LM Studio Pflicht, Modell-Setup ~15 Min |
 
@@ -31,7 +31,7 @@
 >
 > August als Starttermin: **ja, unter der Bedingung** eines kurzen gemeinsamen Setup-Termins (LM Studio + Config). Vollständige Selbstständigkeit ohne Begleitung würde ich eher ab September empfehlen, sobald der Zweitrechner-Install bei mir durch ist.
 
-## Offen (Afschin)
+## Offen (der Steward)
 
 - [ ] Install auf echtem Zweitrechner + Screenshot
 - [ ] Tägliche `mirhamed`-Triage eine Woche

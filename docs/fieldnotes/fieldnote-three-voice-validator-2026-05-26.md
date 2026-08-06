@@ -34,7 +34,7 @@ pro Voice:
 
 ### Modell-Swap-Verhalten
 
-`lms` CLI ist verfügbar (`/Users/afschinmirhamed/.local/bin/lms`).
+`lms` CLI ist verfügbar (`~/.local/bin/lms`).
 `swap_to(model_id)` macht intern `lms unload --all` → `lms load <model>`.
 Bei jedem Fehler (CLI nicht da, OOM, load-timeout, return-code≠0) wird
 gewarnt und `False` zurückgegeben — der Orchestrator skippt diese Voice
