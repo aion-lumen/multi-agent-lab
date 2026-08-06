@@ -10,7 +10,7 @@ Lesbar für IT-affine Menschen; ausführbar für AI-Modelle ohne Repo-Vorwissen.
 | **In-place** in `aion-lumen/multi-agent` | Kein Fork — gleiche Pipeline, Config schaltet Domains |
 | **Kategorien als YAML** | `config/categories.yaml` ersetzt hartkodierte Domain-Listen |
 | **Pilot-Praxis-Preset** | `config/categories.pilot-praxis.yaml` — 4 DE-Praxis-Kategorien |
-| **Dogfooding-Quelle** | `afschin@mirhamed.ch` = Account `mirhamed` in `accounts.toml` |
+| **Dogfooding-Quelle** | `<deine-mailadresse>` = Account `mirhamed` in `accounts.toml` |
 | **Capability-Entzug** | Netz nur IMAP + LM Studio localhost; kein Cloud-Triage |
 
 ```mermaid
@@ -87,7 +87,7 @@ Pro Kategorie:
 [accounts.mirhamed]
 host = "imap.example.com"
 port = 993
-login = "afschin@mirhamed.ch"
+login = "<deine-mailadresse>"
 bw_item = "life-mail/mirhamed"          # Default: Bitwarden
 # password_env = "MIRHAMED_IMAP_PASSWORD"  # Alternative
 # password_cmd = "pass show mail/mirhamed"   # Alternative
@@ -159,9 +159,9 @@ make demo-pilot
 
 Kein Cloud-Triage, kein Auto-Send. Daten bleiben lokal (feedback.db, folio.db).
 
-## Dogfooding (Afschin)
+## Dogfooding (der Steward)
 
-- Account: `mirhamed` (`afschin@mirhamed.ch`)
+- Account: `mirhamed` (`<deine-mailadresse>`)
 - Folio Heute-Hub: Tageszähler je Kategorie + Top-5 actionable
 - Verifikation: `pytest tests/test_mirhamed_worker.py`
 
